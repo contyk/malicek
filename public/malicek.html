@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Malíček</title>
+        <meta charset="UTF-8">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1">
+        <meta name="theme-color"
+              content="#212121">
+        <link rel="stylesheet"
+              href="https://fonts.googleapis.com/css?family=Noto+Sans">
+        <link rel="stylesheet"
+              href="malicek.css">
+        <link rel="icon"
+              href="favicon.png">
+        <script src="malicek.js" type="text/javascript"></script>
+    </head>
+    <body>
+        <audio id="alarm"
+               src="https://o00o.cz/2017/chat/kuku.mp3"></audio>
+        <div id="spinner">
+            <img src="spinner.gif"
+                 alt="Nahrávám…">
+        </div>
+        <div id="login">
+            <form id="loginform"
+                  action="javascript:void(0);">
+                <h1 id="logo">
+                    🐾 Malíček
+                </h1>
+                <label class="loginlabel"
+                       for="username">
+                    Uživatel
+                </label>
+                <input type="text"
+                       id="username"
+                       class="loginfield">
+                <label class="loginlabel"
+                       for="password">
+                    Heslo
+                </label>
+                <input type="password"
+                       id="password"
+                       class="loginfield">
+                <input type="submit"
+                       id="loginbutton"
+                       value="Přihlásit">
+                <div id="helplink">
+                    <a href="wtf.html"
+                       title="Vše co jste kdy chtěli vědět o Malíčku ale báli jste se zeptat.">
+                        Kde to jsem?
+                    </a>
+                </div>
+            </form>
+        </div>
+        <div id="chat">
+            <div id="status">
+                <div id="statusline">
+                    Malíček
+                </div>
+                <div id="mailnotification">
+                    💌
+                </div>
+                <div id="fridgenotification">
+                    🥶
+                </div>
+                <div id="soundtoggle">
+                    🔔
+                </div>
+                <div id="menutoggle">
+                    🐶
+                </div>
+            </div>
+            <div id="buffer">
+            </div>
+            <div id="menu">
+                <ul class="submenus">
+                    <li id="settings"
+                        class="submenu-button">
+                        Nastavení
+                    </li>
+                    <li id="leave"
+                        class="submenu-button">
+                        Odejít
+                    </li>
+                </ul>
+                <ul class="submenus">
+                    <li id="admin"
+                        class="submenu-button">
+                        Správce
+                    </li>
+                    <li id="logout"
+                        class="submenu-button">
+                        Odhlásit
+                    </li>
+                </ul>
+                <ul id="users">
+                </ul>
+            </div>
+            <div id="smileyselector"></div>
+            <div id="input">
+                <form id="inputform"
+                      action="javascript:void(0);">
+                    <input type="text"
+                           id="entry"
+                           autocomplete="off">
+                    <div id="smileys">🤩</div>
+                    <input type="submit"
+                           id="entrybutton"
+                           value="OK">
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

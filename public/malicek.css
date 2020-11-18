@@ -1,0 +1,420 @@
+body {
+    background: #fafafa;
+    color: #212121;
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 14px;
+    padding: 0;
+    margin: 0;
+    scroll-behavior: smooth;
+}
+
+#spinner {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#login {
+    display: none;
+}
+
+#chat {
+    display: none;
+}
+
+#status {
+    background: #212121;
+    color: #fafafa;
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding: 1em;
+    width: 100%;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+#loginform {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#logo {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.loginlabel {
+    display: block;
+    width: 5em;
+    padding: 0.2em;
+}
+
+.loginfield {
+    display: block;
+    padding: 0.5em 0.2em;
+    border: 0.2em #bdbdbd solid;
+    border-radius: 0.2em;
+    width: 15em;
+    font-size: 1em;
+}
+
+#loginbutton {
+    display: block;
+    float: right;
+    background: #fafafa;
+    border: 0.2em #bdbdbd solid;
+    border-radius: 0.2em;
+    padding: 0.5em 1.5em;
+    font-size: 1em;
+    margin-top: 1em;
+    margin-left: auto;
+}
+
+#helplink {
+    margin-top: 1em;
+    padding: 0.5em 0.2em;
+}
+#helplink a {
+    color: #757575;
+    text-decoration: underline;
+}
+#helplink a:hover {
+    color: #212121;
+    text-decoration: underline;
+}
+
+#statusline {
+    float: left;
+}
+
+#menutoggle {
+    display: inline-block;
+    cursor: pointer;
+}
+
+#soundtoggle, #mailnotification, #fridgenotification {
+    display: inline-block;
+    padding-right: 1em;
+    cursor: pointer;
+}
+
+#mailnotification, #fridgenotification {
+    display: none;
+}
+
+#buffer {
+    padding: 4em 1em;
+}
+
+#menu {
+    display: none;
+    background: #fafafa;
+    position: fixed;
+    top: 0;
+    right: 0;
+    padding: 1em;
+    margin: 3.5em 0;
+    min-width: 25%;
+    max-width: 80%;
+    height: calc(100% - 9em);
+    border-left: 0.5em #bdbdbd solid;
+    border-radius: 0.5em;
+}
+
+#smileyselector {
+    display: none;
+    width: 7.5em;
+    height: 22.5em;
+    background: #fafafa;
+    border: 0.5em #bdbdbd solid;
+    border-radius: 0.5em;
+    padding: 0;
+    position: fixed;
+    bottom: 4.5em;
+    right: 1em;
+}
+
+#smileyselector div {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    margin: 0.5em;
+    border: 0;
+    padding: 0;
+    vertical-align: middle;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    cursor: pointer;
+}
+
+#input {
+    background: #212121;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    padding: 0.5em 1em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#inputform {
+    display: flex;
+}
+
+#smileys {
+    display: inline-block;
+    padding: 0.5em 1em;
+    padding-right: 0;
+    cursor: pointer;
+}
+
+#entry {
+    flex-grow: 1;
+    border: 0;
+    margin: 0;
+    font-size: 1em;
+    background: inherit;
+    color: #fafafa;
+    padding: 0.5em 0;
+    box-sizing: border-box;
+}
+
+#entrybutton {
+    display: none;
+}
+
+.submenus {
+    list-style-type: none;
+    padding: 0;
+    text-align: center;
+}
+
+.submenu-button {
+    display: block;
+    float: left;
+    width: 5.5em;
+    border: 0.1em #212121 solid;
+    border-radius: 0.5em;
+    padding: 0.2em;
+    margin: 0.2em 0.2em;
+}
+
+#settings, #admin {
+    background: #757575;
+    cursor: not-allowed;
+}
+
+#leave, #logout {
+    cursor: pointer;
+}
+
+#users {
+    clear: both;
+    list-style-type: none;
+    padding: 0.5em;
+    padding-top: 1em;
+    line-height: 1.8em;
+    cursor: pointer;
+}
+
+.list-user-boy {
+    color: #5c6bc0;
+}
+.list-user-boy:after {
+    content: " ♂";
+}
+.list-user-girl {
+    color: #ef5350;
+}
+.list-user-girl:after {
+    content: " ♀";
+}
+.list-user-unisex {
+    color: #616161;
+}
+.list-user-unisex:after {
+    content: " ?";
+}
+
+.list-user-info {
+    color: #212121;
+}
+
+.room-item {
+    padding: 1em 0;
+    cursor: pointer;
+}
+
+.room-unavailable {
+    cursor: not-allowed;
+}
+
+.room-name {
+    font-size: 1.2em;
+}
+
+.locked:after {
+    content: ' 🔒';
+}
+
+.room-lock {
+    font-style: italic;
+}
+
+.room-info {
+    font-style: italic;
+    clear: left;
+}
+
+.room-users {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.room-users li {
+    display: inline-block;
+    margin-right: 0.8em;
+}
+
+.room-user-admin {
+    font-weight: bold;
+}
+.room-user-boy {
+    color: #5c6bc0;
+}
+.room-user-boy:before {
+    content: "♂ ";
+}
+.room-user-girl {
+    color: #ef5350;
+}
+.room-user-girl:before {
+    content: "♀ ";
+}
+.room-user-unisex {
+    color: #616161;
+}
+.room-user-unisex:before {
+    content: "? ";
+}
+
+.system {
+    text-align: center;
+    margin: 1em;
+}
+
+.system-time {
+    font-size: 80%;
+}
+
+.bubble {
+    color: #fafafa;
+    background: #212121;
+    padding: 1em;
+    margin-bottom: 1em;
+    cursor: pointer;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.bubble .smiley {
+    height: 1.25em;
+    vertical-align: middle;
+    margin: 0 0.1em;
+}
+
+.bubble a {
+    color: #fafafa;
+    text-decoration: underline;
+}
+
+.message {
+    border-radius: 0 1.5em 1.5em 1.5em;
+    margin-right: 5em;
+}
+
+.my-message {
+    border-radius: 1.5em 0 1.5em 1.5em;
+    margin-left: 5em;
+}
+
+.avatar {
+    float: left;
+    background-position: center;
+    background-size: cover;
+    border: 0.15em #fafafa solid;
+    border-radius: 50%;
+    margin-right: 1em;
+    margin-bottom: auto;
+    width: 2.5em;
+    height: 2.5em;
+}
+
+.private {
+    border: 0.2em dashed;
+    font-style: italic;
+    background: inherit;
+    color: inherit;
+}
+
+.notify .bubble-time:after {
+    content: " 🔔";
+}
+
+.private a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.bubble-author {
+    display: inline;
+    font-weight: bold
+}
+
+.bubble-recipient {
+    display: inline;
+    font-weight: bold;
+}
+.bubble-recipient:before {
+    content: " → ";
+}
+
+.bubble-time {
+    display: inline-block;
+    font-size: 80%;
+    margin-left: 0.5em;
+}
+
+#help {
+    padding: 3em;
+}
+#help h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-top: 2em;
+    margin-bottom: 1em;
+}
+#help h2 {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 2em;
+    margin-bottom: 1em;
+}
+#help p {
+    margin: 1em 0;
+}
+#help a {
+    color: #757575;
+    text-decoration: underline;
+}
+#help a:hover {
+    color: #212121;
+    text-decoration: underline;
+}
