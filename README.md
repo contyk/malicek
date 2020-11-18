@@ -109,7 +109,7 @@ Provides a list of currently available rooms and their users.
         ]
       },
       {
-        "id", "bar",
+        "id": "bar",
         "name": "bar",
         "sex": "girl",
         "admin": []
@@ -259,7 +259,7 @@ Unauthenticated sessions get redirected to `/`.
   "additions": [
     {
       "who": "contyk",
-      "when": "18. listopadu v 4:41:12"
+      "when": "18. listopadu v 4:41:12",
       "amount": 6,
       "method": "hodem"
     }
