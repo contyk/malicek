@@ -25,7 +25,7 @@ No actions are performed automatically on the user's behalf.  Each REST request
 directly translates into a synchronous Alík request.
 
 The code relies heavily on regular expressions for parsing Alík's responses.
-Unfortunately, this is necessary as the responses are not valid and broken
+Unfortunately, this is necessary as the responses are often broken, invalid
 HTML.  The parsing code is therefore very fragile and needs to be updated
 whenever Alík changes.  Fortunately that doesn't happen very frequently.
 
