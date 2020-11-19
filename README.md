@@ -172,7 +172,7 @@ A detailed list of users in the room is also provided.
       "event": {
         "type": "join",
         "source": "contyk",
-        "target": undef
+        "target": null
       }
     }
   ]
