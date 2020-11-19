@@ -158,7 +158,8 @@ A detailed list of users in the room is also provided.
       "avatar": "https://o00o.cz/obrazky/DF/QL/XDZ-avatar.png",
       "time": "04:56:35",
       "private": [],
-      "type": "chat"
+      "type": "chat",
+      "event": null
     },
     {
       "nick": null,
@@ -167,7 +168,12 @@ A detailed list of users in the room is also provided.
       "avatar": null,
       "time": "04:44:00",
       "private": [],
-      "type": "system"
+      "type": "system",
+      "event": {
+        "type": "join",
+        "source": "contyk",
+        "target": undef
+      }
     }
   ]
 }
@@ -186,18 +192,25 @@ messages.
 Message `color` can be a bogus (but valid) value if colors are disabled, or
 `null` for system messages.
 
+`private` contains a list of nicks the message is intended for.  If empty,
+the message is public.
+
 Messages with `null` as the private recipient are filtered out.  These can be
 used for keepalive messages.
+
+For message of `type` `system`, `event` may contain additional data about the
+message.  Currently supported types include `join`, `part`, `kick`, `oper`,
+`clear`, `lock` and `unlock`.  Most set the `source`, `kick` sets the `target`.
 
 Room settings can also be queried with `?query=settings`.
 
 ```json
 {
   "color": "#424242",
-  "refresh": "5",
+  "refresh": 5,
   "highlight": true,
   "colors": true,
-  "system": "1",
+  "system": true,
   "time": true,
   "avatars": true
 }
@@ -315,7 +328,8 @@ Testing can be done directly with CUrl or any similar tool.
 Due to Alík's chat design, it is impossible to join a room where you already
 are without a valid chat cookie.  A simple workaround lies in joining a
 different room to obtain the said chat cookie, leave, and join the original
-room.
+room.  As an automatic workaround, Malíček attempts to leave every room before
+joining.
 
 Additionally Alík doesn't let users directly know when they've been kicked out
 or have idled out.  Malíček could support additional workarounds to detect

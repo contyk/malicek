@@ -5,7 +5,7 @@ use utf8;
 use v5.16;
 
 our $APP = 'Malicek';
-use version 0.77; our $VERSION = version->declare('v0.1.12');
+use version 0.77; our $VERSION = version->declare('v0.1.13');
 our $agent = "${APP}/${VERSION}";
 
 # Malíček, an alternative interface for alik.cz
@@ -157,6 +157,10 @@ my $alik = 'https://www.alik.cz';
         return $_[0]->{type} = $_[1] // $_[0]->{type};
     }
 
+    sub event {
+        return $_[0]->{event} = $_[1] // $_[0]->{event};
+    }
+
     sub private {
         return $_[0]->{private} = $_[1] // $_[0]->{private};
     }
@@ -184,6 +188,7 @@ my $alik = 'https://www.alik.cz';
     sub dump {
         return {
             type => $_[0]->type,
+            event => $_[0]->event,
             private => $_[0]->private // [],
             nick => $_[0]->nick,
             message => $_[0]->message,
@@ -350,12 +355,32 @@ sub parse_chat {
                     /sgx) {
         my $msg = Malicek::Chat::Message->new();
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
+        $msg->event(undef);
         if ($+{time}) {
             $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time});
         }
         $msg->avatar($+{avatar} ? 'https://' . $+{avatar} : undef);
         if ($+{type} eq 'system') {
             $msg->message($+{message} =~ s/<.+?>|\s*$//sgxr);
+            if ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
+                $msg->event({type => 'join', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) (vstala? od|přeš(el|la) k jimému) stolu\.$/) {
+                $msg->event({type => 'part', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Alík odebral kamarád(ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
+                $msg->event({type => 'part', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) zamkla? stůl/) {
+                $msg->event({type => 'lock', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) odemkla? stůl/) {
+                $msg->event({type => 'unlock', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) vyčistila? stůl\.$/) {
+                $msg->event({type => 'clear', source => $+{nick}, target => undef});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
+                $msg->event({type => 'kick', source => undef, target => $+{nick}});
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) předala? správce\.$/) {
+                $msg->event({type => 'oper', source => $+{nick}, target => undef});
+            } else {
+                $msg->event({type => 'unknown', source => undef, target => undef});
+            }
         } else {
             $+{message} =~ /(?<private><span\sclass="septani"><\/span>)?
                             <font\scolor="((?<color>\#[a-fA-F0-9]{6})|.+?)">
@@ -382,7 +407,7 @@ sub parse_chat {
 }
 
 sub parse_settings {
-    $_[0] =~ /value="(?<system>\d)"\sname="system"(?<system>)
+    $_[0] =~ /\sname="system"(?<system>\schecked)?
               .*?name="barvy"(?<colors>\schecked)?
               .*?name="cas"(?<time>\schecked)?
               .*?name="ikony"(?<avatars>\schecked)?
@@ -391,11 +416,11 @@ sub parse_settings {
               .*?name="barva"\svalue="(?<color>\#[a-fA-F0-9]{6})"
              /sgx;
     return (
-        system => $+{system},
+        system => $+{system} ? \1 : \0,
         colors => $+{colors} ? \1 : \0,
         time => $+{time} ? \1 : \0,
         avatars => $+{avatars} ? \1 : \0,
-        refresh => $+{refresh},
+        refresh => int($+{refresh}),
         highlight => $+{highlight} ? \1 : \0,
         color => $+{color},
     );
