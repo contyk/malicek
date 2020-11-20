@@ -137,7 +137,10 @@ A detailed list of users in the room is also provided.
 
 ```json
 {
+  "name": "Super stůl",
+  "topic": "Stůl o všem a pro všechny",
   "creator": "FoO",
+  "allowed": "all",
   "users": [
     {
       "id": null,

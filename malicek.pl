@@ -5,7 +5,7 @@ use utf8;
 use v5.16;
 
 our $APP = 'Malicek';
-use version 0.77; our $VERSION = version->declare('v0.1.13');
+use version 0.77; our $VERSION = version->declare('v0.1.14');
 our $agent = "${APP}/${VERSION}";
 
 # Malíček, an alternative interface for alik.cz
@@ -246,13 +246,14 @@ sub sanitize {
 }
 
 sub parse_status {
-    $_[0] =~ /\("(?<mail>\d+)",\s*
-              "(?<people>\d+)",\s*
-              "(?<cash>[0-9\s]+)"\)/sx;
+    $_[0] =~ /^Alik\.pocty\(
+              "(?<mail>\d+)",\s
+              "(?<people>\d+)!?",\s
+              "(?<cash>[0-9\s]+)"\);$/sx;
     return (
-        mail => 0 + $+{mail},
-        people => 0 + $+{people},
-        cash => 0 + (($+{cash} // 0) =~ s/\s*//gr),
+        mail => int($+{mail}),
+        people => int($+{people}),
+        cash => int($+{cash} =~ s/\s//gr),
     );
 }
 
@@ -305,9 +306,27 @@ sub parse_rooms {
 }
 
 sub parse_chat {
-    my ($creator, %users, @messages);
-    $_[0] =~ /Stůl\szaložil\/a:\s<a\shref="\/u\/.+?">(?<creator>.+?)<\/a>/sx;
+    my ($name, $topic, $creator, $allowed, %users, @messages);
+    $_[0] =~ /<!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.+?
+              Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
+              <!--reload\("bleskopopisek"\)-->(?<topic>.*)<!--\/reload-->
+              <\/small><\/h2><p>
+              Stůl\szaložil\/a:\s<a\shref="\/u\/.+?">(?<creator>.+?)<\/a>/sx;
+    $name = $+{name};
+    $topic = $+{topic};
     $creator = $+{creator};
+    $allowed = 'all';
+    if ($+{lock}) {
+        if (index($+{lock}, 'lock.png') != -1) {
+            $allowed = 'none';
+        } elsif (index($+{lock}, 'lockh.png') != -1) {
+            $allowed = 'boys';
+        } elsif (index($+{lock}, 'lockk.png') != -1) {
+            $allowed = 'girls';
+        } elsif (index($+{lock}, 'locknf.png') != -1) {
+            $allowed = 'friends';
+        }
+    }
     while ($_[0] =~ /<option\svalue="(?<id>\d+)">(?<nick>.+?)<\/option>/sgx) {
         next if $+{id} == 0;
         my $user = Malicek::Chat::User->new();
@@ -400,7 +419,10 @@ sub parse_chat {
         push @messages, $msg if $msg;
     }
     return (
+        name => $name,
+        topic => $topic,
         creator => $creator,
+        allowed => $allowed,
         users => [ map { $users{$_}->dump } keys %users ],
         messages => [ map { $_->dump } @messages ],
     );
@@ -598,7 +620,7 @@ sub game_lednicka {
     }
     my %fridge;
     $fridge{active} = $page !~ /Je\spřičteno!/sx || 0;
-    $fridge{total} = ($page =~ /<a\shref="\/-\/lednicka".+?>([0-9\s]+)<\/a>/sx)[0];
+    $fridge{total} = ($page =~ /<a\shref="\/-\/lednicka".+?>\s*([0-9\s]+)</sx)[0];
     $fridge{total} =~ s/\s//g; $fridge{total} += 0;
     $fridge{defrost} = $fridge{active} ? ($page !~ /onclick="alert/sx || 0) : 0;
     $fridge{defrost} = ($page =~ /Odmrazení\sčtyřčíslí/sx ? 4 : 3) if $fridge{defrost};
