@@ -383,7 +383,7 @@ sub parse_chat {
             $msg->message($+{message} =~ s/<.+?>|\s*$//sgxr);
             if ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event({type => 'join', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) (vstala? od|přeš(el|la) k jimému) stolu\.$/) {
+            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) (vstala? od|přeš(el|la) k jinému) stolu\.$/) {
                 $msg->event({type => 'part', source => $+{nick}, target => undef});
             } elsif ($msg->message() =~ /^Alík odebral kamarád(ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
                 $msg->event({type => 'part', source => $+{nick}, target => undef});
