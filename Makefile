@@ -12,6 +12,15 @@ start:
 		--volume .:/malicek \
 		malicek
 
+debug:
+	@$(OCI) run \
+		--rm \
+		--name malicek \
+		--publish 3000 \
+		--volume .:/malicek \
+		malicek \
+		/bin/sh
+
 build:
 	@$(OCI) build \
 		. \
@@ -26,4 +35,4 @@ clean:
 	@$(OCI) rmi \
 		malicek
 
-.PHONY: start stop build clean
+.PHONY: start stop debug build clean
