@@ -5,7 +5,7 @@ use utf8;
 use v5.16;
 
 our $APP = 'Malicek';
-use version 0.77; our $VERSION = version->declare('v0.1.14');
+use version 0.77; our $VERSION = version->declare('v0.1.15');
 our $agent = "${APP}/${VERSION}";
 
 # Malíček, an alternative interface for alik.cz
@@ -589,6 +589,10 @@ get '/app/:file?' => sub {
             public/malicek.js
             public/wtf.html
             public/LICENSE.txt
+            README.md
+            Containerfile
+            Makefile
+            test.sh
         };
         my $regenerate = 0;
         for (@files) {

@@ -2,32 +2,33 @@
 
 Malíček provides a REST interface for [Alík.cz](https://alik.cz/).
 
-An experimental, toy middle layer that serves as an abstraction of Alík's
-features.  Currently limited to chat.
+An experimental, toy middle layer that serves as an abstraction of
+Alík's features.  Currently limited to chat.
 
-Due to Alík's limitations, this service is inherently unsafe and using a public
-instance is not recommended.  See below for details.  However, a public demo
-instance is available at https://alik.contyk.dev/.
+Due to Alík's limitations, this service is inherently unsafe and using a
+public instance is not recommended.  See below for details.  However, a
+public demo instance is available at https://alik.contyk.dev/.
 
 ## Architecture
 
-Malíček sits between the user and Alík, translating REST requests into standard
-Alík web page requests, munching the responses and presenting them in
-machine-friendly, lightweight JSON.
+Malíček sits between the user and Alík, translating REST requests into
+standard Alík web page requests, munching the responses and presenting
+them in machine-friendly, lightweight JSON.
 
-Since Alík does not provide authentication methods for third parties, Malíček
-needs to handle the user's username and password directly, passing it through
-and holding the session cookies.  In turn, Malíček issues its own session
-cookies for the REST interface.  The API is documented below.  Both request and
-response bodies must be in JSON.
+Since Alík does not provide authentication methods for third parties,
+Malíček needs to handle the user's username and password directly,
+passing it through and holding the session cookies.  In turn, Malíček
+issues its own session cookies for the REST interface.  The API is
+documented below.  Both request and response bodies must be in JSON.
 
-No actions are performed automatically on the user's behalf.  Each REST request
-directly translates into a synchronous Alík request.
+No actions are performed automatically on the user's behalf.  Each REST
+request directly translates into a synchronous Alík request.
 
-The code relies heavily on regular expressions for parsing Alík's responses.
-Unfortunately, this is necessary as the responses are often broken, invalid
-HTML.  The parsing code is therefore very fragile and needs to be updated
-whenever Alík changes.  Fortunately that doesn't happen very frequently.
+The code relies heavily on regular expressions for parsing Alík's
+responses.  Unfortunately, this is necessary as the responses are often
+broken, invalid HTML.  The parsing code is therefore very fragile and
+needs to be updated whenever Alík changes.  Fortunately that doesn't
+happen very frequently.
 
 ## API
 
@@ -46,8 +47,8 @@ Returns `200` for authenticated sessions, `401` otherwise.
 }
 ```
 
-Provides the app identification, its name, version, its User-Agent string, and
-whether the session is active or not.
+Provides the app identification, its name, version, its User-Agent
+string, and whether the session is active or not.
 
 ### `POST /login`
 
@@ -124,14 +125,15 @@ Provides a list of currently available rooms and their users.
 
 `sex` can be either `boy`, `girl` or `unisex`.
 
-`admin` is currently either an empty list or a list containing a single item, `admin`.
+`admin` is currently either an empty list or a list containing a single
+item, `admin`.
 
 Unauthenticated sessions get redirected to `/`.
 
 ### `GET /rooms/<id>`
 
-Gets the list of curently visible messages in the selected room.  Joins the
-room on the first request (although see the Shortcomings section).
+Gets the list of curently visible messages in the selected room.  Joins
+the room on the first request (although see the Shortcomings section).
 
 A detailed list of users in the room is also provided.
 
@@ -182,28 +184,29 @@ A detailed list of users in the room is also provided.
 }
 ```
 
-User `id` is `null` for self, otherwise it's the numerical system ID, usable
-for private messaging.
+User `id` is `null` for self, otherwise it's the numerical system ID,
+usable for private messaging.
 
 Messages are sorted by the most recent first.
 
 Message `time` can be `null` if timestamps are disabled.
 
-Message `avatar` can be `null` if avatars are disabled or in the case of system
-messages.
+Message `avatar` can be `null` if avatars are disabled or in the case of
+system messages.
 
-Message `color` can be a bogus (but valid) value if colors are disabled, or
-`null` for system messages.
+Message `color` can be a bogus (but valid) value if colors are disabled,
+or `null` for system messages.
 
-`private` contains a list of nicks the message is intended for.  If empty,
-the message is public.
+`private` contains a list of nicks the message is intended for.  If
+empty, the message is public.
 
-Messages with `null` as the private recipient are filtered out.  These can be
-used for keepalive messages.
+Messages with `null` as the private recipient are filtered out.  These
+can be used for keepalive messages.
 
-For message of `type` `system`, `event` may contain additional data about the
-message.  Currently supported types include `join`, `part`, `kick`, `oper`,
-`clear`, `lock` and `unlock`.  Most set the `source`, `kick` sets the `target`.
+For message of `type` `system`, `event` may contain additional data
+about the message.  Currently supported types include `join`, `part`,
+`kick`, `oper`, `clear`, `lock` and `unlock`.  Most set the `source`,
+`kick` sets the `target`.
 
 Room settings can also be queried with `?query=settings`.
 
@@ -219,11 +222,12 @@ Room settings can also be queried with `?query=settings`.
 }
 ```
 
-Own's message color is represented by `color`.  `refresh` is the number of
-seconds between Alík's own refreshes.  `highlight` highlights one's name on
-Alík, `colors` toggles whether other users' colors are shown, `system` toggles
-whether system messages are shown, `time` toggles whether timestamps are shown,
-and `avatars` toggles the visibility of user avatars in messages.
+Own's message color is represented by `color`.  `refresh` is the number
+of seconds between Alík's own refreshes.  `highlight` highlights one's
+name on Alík, `colors` toggles whether other users' colors are shown,
+`system` toggles whether system messages are shown, `time` toggles
+whether timestamps are shown, and `avatars` toggles the visibility of
+user avatars in messages.
 
 Unauthenticated sessions get redirected to `/`.
 
@@ -242,10 +246,10 @@ To post a message:
 }
 ```
 
-Where `message` is the message to send, `color` is the message color, and `to`
-is the recipient of the message as their numerical ID.  A special value of `0`
-means the message is public.  Negative values send broken messages, potentially
-useful for keepalive.
+Where `message` is the message to send, `color` is the message color,
+and `to` is the recipient of the message as their numerical ID.  A
+special value of `0` means the message is public.  Negative values send
+broken messages, potentially useful for keepalive.
 
 To leave the room:
 
@@ -261,7 +265,8 @@ Unauthenticated sessions get redirected to `/`.
 
 ### `GET /games/<game>`
 
-Gets the status of a supported game.  Currently only *Lednička* is supported.
+Gets the status of a supported game.  Currently only *Lednička* is
+supported.
 
 Unauthenticated sessions get redirected to `/`.
 
@@ -283,25 +288,28 @@ Unauthenticated sessions get redirected to `/`.
 }
 ```
 
-Where `active` deontes whether the user may play, `defrost` whether that method
-is available, `total` holds the turn result after `POST` (see below), and
-`additions` is a list of up to 50 last turns from all the users.
+Where `active` deontes whether the user may play, `defrost` whether that
+method is available, `total` holds the turn result after `POST` (see
+below), and `additions` is a list of up to 50 last turns from all the
+users.
 
 `additions` timestamps and methods are raw and generally in Czech.
 
 ### `POST /games/<game>`
 
-Takes an action in a supported game.  Currently only *Lednička* is supported.
+Takes an action in a supported game.  Currently only *Lednička* is
+supported.
 
 Unauthenticated sessions get redirected to `/`.
 
 #### Lednička
 
-Attempts to play a turn in *Lednička*.  Expects no request body.  The `method`
-can be specified as an optional query parameter, e.g. `?method=k`.
+Attempts to play a turn in *Lednička*.  Expects no request body.  The
+`method` can be specified as an optional query parameter, e.g.
+`?method=k`.
 
-Methods are passed directly to Alík.  Currently supported methods include `1`,
-`h`, `m`, `M`, `d`, `k`, `c`, `r` and `o`.
+Methods are passed directly to Alík.  Currently supported methods
+include `1`, `h`, `m`, `M`, `d`, `k`, `c`, `r` and `o`.
 
 If no method is specified, Malíček will choose a method with the highest
 potential yield automatically.
@@ -312,33 +320,63 @@ Redirects to `/games/lednicka`.
 
 Serves a file from the `public` directory.
 
-If `malicek.tar.gz` is requested and the file doesn't exist or is older than
-any of the currently used source files, Malíček creates a gzip'd tarball of
-itself and serves that file.
+If `malicek.tar.gz` is requested and the file doesn't exist or is older
+than any of the currently used source files, Malíček creates a gzip'd
+tarball of itself and serves that file.
 
 ## Clients
 
-A very simple web client, suitable for handheld devices, is bundled; see the
-Deployment section for how to access it.
+A very simple web client, suitable for handheld devices, is bundled; see
+the Deployment section for how to access it.
 
 Additionally, a proof-of-concept curses-based client can be found in
 `public/cli.pl`.
 
-Testing can be done directly with CUrl or any similar tool.
+An IRC gateway client, [mlck](https://github.com/contyk/mlck), is also
+available.
+
+Testing can be done directly with CUrl or any similar tool.  See the
+Testing section below for further information.
 
 ## Shortcomings
 
-Due to Alík's chat design, it is impossible to join a room where you already
-are without a valid chat cookie.  A simple workaround lies in joining a
-different room to obtain the said chat cookie, leave, and join the original
-room.  As an automatic workaround, Malíček attempts to leave every room before
-joining.
+Due to Alík's chat design, it is impossible to join a room where you
+already are without a valid chat cookie.  A simple workaround lies in
+joining a different room to obtain the said chat cookie, leave, and join
+the original room.  As an automatic workaround, Malíček attempts to
+leave every room before joining if it doesn't have a chat cookie
+already.
 
-Additionally Alík doesn't let users directly know when they've been kicked out
-or have idled out.  Malíček could support additional workarounds to detect
-these situations but currently does not.
+Additionally Alík doesn't let users directly know when they've been
+kicked out or have idled out.  Malíček could support additional
+workarounds to detect these situations but currently does not.
 
 Room admin features are currently unsupported.
+
+## Testing
+
+The provided `test.sh` can be used for simple `GET` tests.  Login
+information must be provided in `~/.malicek` via `user` and `pass`
+variables.  `curl` and `jq` must be installed.
+
+```sh
+echo user=foo > ~/.malicek
+echo pass=password >> ~/.malicek
+./test.sh rooms
+./test.sh games/lednicka
+./test.sh logout
+```
+
+A `Containerfile` is provided to build a local container to assist with
+this if you cannot run Malíček directly.  Furthermore, a a `Makefile` is
+provided to make the container process easier.
+
+```sh
+make build
+make start
+make stop
+make clean
+```
 
 ## Deployment
 
@@ -363,8 +401,9 @@ To run a simple endpoint, run Malíček directly and connect to port 3000:
 
 ### With the web application interface
 
-To provide the bundled web application and TLS support (recommended), configure
-a forward proxy that maps `/` requests to `/app/`, and `/api/` requests to `/`.
+To provide the bundled web application and TLS support (recommended),
+configure a forward proxy that maps `/` requests to `/app/`, and `/api/`
+requests to `/`.
 
 An example Nginx configuration snippet.
 
@@ -392,9 +431,9 @@ Petr Šabata <contyk@contyk.dev>, 2019-2020
 
 Code licensed under MIT/X.  See `public/LICENSE.txt` for details.
 
-The repository also includes `public/spinner.gif`, a CC0-licensed generated
-loading animation from [Loading.io](https://loading.io).
+The repository also includes `public/spinner.gif`, a CC0-licensed
+generated loading animation from [Loading.io](https://loading.io).
 
-Additionally, the `public/favicon.png` image is a glyph from the Noto Emoji
-typeface, distributed under SIL Open Font License by
+Additionally, the `public/favicon.png` image is a glyph from the Noto
+Emoji typeface, distributed under SIL Open Font License by
 [Google](https://www.google.com/get/noto/).
