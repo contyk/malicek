@@ -15,11 +15,12 @@ start:
 debug:
 	@$(OCI) run \
 		--rm \
+		-it \
 		--name malicek \
 		--publish 3000 \
 		--volume .:/malicek \
-		malicek \
-		/bin/sh
+		--entrypoint /bin/sh \
+		malicek
 
 build:
 	@$(OCI) build \

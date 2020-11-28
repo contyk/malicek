@@ -15,7 +15,7 @@ RUN \
         zlib \
         zlib-dev ;\
     cpanm -in --no-man-pages --curl --no-wget --no-lwp \
-        Archive::Tar \
+        Class::XSAccessor \
         Dancer2 \
         Dancer2::Serializer::JSON \
         Dancer2::Session::Simple \
@@ -24,7 +24,10 @@ RUN \
         HTML::Entities \
         HTTP::Cookies \
         LWP::UserAgent \
-        LWP::Protocol::https ;\
+        LWP::Protocol::https \
+        Mo \
+        Mo::default \
+        Mo::xs ;\
     apk del \
         curl \
         gcc \

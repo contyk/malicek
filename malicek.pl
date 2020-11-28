@@ -2,10 +2,10 @@
 use strict;
 use warnings;
 use utf8;
-use v5.16;
+use v5.20;
 
 our $APP = 'Malicek';
-use version 0.77; our $VERSION = version->declare('v0.1.15');
+use version 0.77; our $VERSION = version->declare('v0.2.0');
 our $agent = "${APP}/${VERSION}";
 
 # Malíček, an alternative interface for alik.cz
@@ -29,156 +29,68 @@ set session_dir => '/tmp';
 my $alik = 'https://www.alik.cz';
 
 {
-    package Malicek::Base;
-    # Base class with common methods
-    sub new {
-        return bless {}, $_[0];
-    }
-}
-
-{
     package Malicek::Room;
-    our @ISA = qw/Malicek::Base/;
-    # Represents a room in the rooms view
-    sub name {
-        return $_[0]->{name} = $_[1] // $_[0]->{name};
-    }
-
-    sub id {
-        return $_[0]->{id} = $_[1] // $_[0]->{id};
-    }
-
-    sub topic {
-        return $_[0]->{topic} = $_[1] // $_[0]->{topic};
-    }
-
-    sub users {
-        my ($self, @users) = @_;
-        return $_[0]->{users} = scalar(@users) ? [ @users ] : $_[0]->{users};
-    }
-
-    sub allowed {
-        return $_[0]->{allowed} = $_[1] // $_[0]->{allowed};
-    }
-
+    use Mo qw/default xs/;
+    has 'name';
+    has 'id';
+    has 'topic';
+    has 'users' => [];
+    has 'allowed' => 'all';
     sub dump {
+        my $self = shift;
         return {
-            name => $_[0]->name,
-            id => $_[0]->id,
-            topic => $_[0]->topic,
-            allowed => $_[0]->allowed // 'all',
-            users => $_[0]->users && @{ $_[0]->users } ? [map { $_->dump } @{ $_[0]->users }] : [],
-        };
+            name => $self->name,
+            id => $self->id,
+            topic => $self->topic,
+            allowed => $self->allowed,
+            users => [ map { $_->dump } $self->users->@* ],
+        }
     }
 }
 
 {
-    package Malicek::Room::User;
-    our @ISA = qw/Malicek::Base/;
-    # Represents a user in the rooms view
-    sub link {
-        return $_[0]->{link} = $_[1] // $_[0]->{link};
-    }
-
-    sub name {
-        return $_[0]->{name} = $_[1] // $_[0]->{name};
-    }
-
-    sub sex {
-        return $_[0]->{sex} = $_[1] // $_[0]->{sex};
-    }
-
-    sub age {
-        return $_[0]->{age} = $_[1] // $_[0]->{age};
-    }
-
-    sub admin {
-        return $_[0]->{admin} = $_[1] // $_[0]->{admin};
-    }
-
+    package Malicek::User;
+    use Mo qw/default xs/;
+    has 'name';
+    has 'id';
+    has 'link';
+    has 'age';
+    has 'sex' => 'unisex';
+    has 'admin' => [];
+    has 'since';
+    has 'last';
     sub dump {
+        my $self = shift;
         return {
-            link => $_[0]->link,
-            name => $_[0]->name,
-            sex => $_[0]->sex,
-            age => $_[0]->age,
-            admin => ($_[0]->admin // []),
-        };
+            name => $self->name,
+            id => $self->id,
+            link => $self->link,
+            age => $self->age,
+            sex => $self->sex,
+            admin => $self->admin,
+            since => $self->since,
+            last => $self->last,
+        }
     }
 }
 
 {
-    package Malicek::Chat::User;
-    our @ISA = qw/Malicek::Room::User/;
-    # Represents a user in the chat room
-    sub id {
-        return $_[0]->{id} = $_[1] // $_[0]->{id};
-    }
-
-    sub since {
-        return $_[0]->{since} = $_[1] // $_[0]->{since};
-    }
-
-    sub last {
-        return $_[0]->{last} = $_[1] // $_[0]->{last};
-    }
-
-    sub dump {
-        return {
-            id => $_[0]->id ? int($_[0]->id) : undef,
-            link => $_[0]->link,
-            name => $_[0]->name,
-            sex => $_[0]->sex,
-            age => $_[0]->age ? int($_[0]->age) : undef,
-            admin => ($_[0]->admin // []),
-            since => $_[0]->since,
-            last => $_[0]->last,
-        };
-    }
-}
-
-{
-    package Malicek::Chat::Message;
-    our @ISA = qw/Malicek::Base/;
-    # Represents a message in a chat room
-    sub type {
-        return $_[0]->{type} = $_[1] // $_[0]->{type};
-    }
-
-    sub event {
-        return $_[0]->{event} = $_[1] // $_[0]->{event};
-    }
-
-    sub private {
-        return $_[0]->{private} = $_[1] // $_[0]->{private};
-    }
-
-    sub nick {
-        return $_[0]->{nick} = $_[1] // $_[0]->{nick};
-    }
-
-    sub message {
-        return $_[0]->{message} = $_[1] // $_[0]->{message};
-    }
-
-    sub time {
-        return $_[0]->{time} = $_[1] // $_[0]->{time};
-    }
-
-    sub avatar {
-        return $_[0]->{avatar} = $_[1] // $_[0]->{avatar};
-    }
-
-    sub color {
-        return $_[0]->{color} = $_[1] // $_[0]->{color};
-    }
-
+    package Malicek::Message;
+    use Mo qw/default xs/;
+    has 'type';
+    has 'event';
+    has 'from';
+    has 'to';
+    has 'message';
+    has 'color';
+    has 'time';
+    has 'avatar';
     sub dump {
         return {
             type => $_[0]->type,
             event => $_[0]->event,
-            private => $_[0]->private // [],
-            nick => $_[0]->nick,
+            from => $_[0]->from,
+            to => $_[0]->to,
             message => $_[0]->message,
             time => $_[0]->time,
             avatar => $_[0]->avatar,
@@ -189,12 +101,20 @@ my $alik = 'https://www.alik.cz';
 
 sub login {
     my ($user, $pass) = @_;
-    my $ua = LWP::UserAgent->new(cookie_jar => {},
-                                 agent => $agent,
-                                 keep_alive => 1);
-    my $r = $ua->post("${alik}/prihlasit",
-                      [ login => $user, heslo => $pass,
-                        typ => 'login_alik', pamatovat => 'on' ]);
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => {},
+        agent => $agent,
+        keep_alive => 1
+    );
+    my $r = $ua->post(
+        "${alik}/prihlasit",
+        [
+            login => $user,
+            heslo => $pass,
+            typ => 'login_alik',
+            pamatovat => 'on',
+        ],
+    );
     if ($r->is_redirect()) {
         return $ua->cookie_jar();
     } else {
@@ -204,7 +124,8 @@ sub login {
 
 sub logout {
     if (session('cookies')) {
-        unlink session('cookies') if -f session('cookies');
+        unlink session('cookies')
+            if -f session('cookies');
         app->destroy_session;
     }
 }
@@ -219,7 +140,10 @@ sub reconcile {
 
 sub load_cookies {
     my $cj = session('cookies')
-        ? HTTP::Cookies->new(file => session('cookies'), autosave => 0)
+        ? HTTP::Cookies->new(
+            file => session('cookies'),
+            autosave => 0,
+        )
         : HTTP::Cookies->new();
     return $cj;
 }
@@ -234,10 +158,11 @@ sub sanitize {
 }
 
 sub parse_status {
-    $_[0] =~ /^Alik\.pocty\(
-              "(?<mail>\d+)",\s
-              "(?<people>\d+)!?",\s
-              "(?<cash>[0-9\s]+)"\);$/sx;
+    $_[0] =~ /
+        ^Alik\.pocty\(
+        "(?<mail>\d+)",\s
+        "(?<people>\d+)!?",\s
+        "(?<cash>[0-9\s]+)"\);$/sx;
     return (
         mail => int($+{mail}),
         people => int($+{people}),
@@ -248,33 +173,43 @@ sub parse_status {
 sub parse_rooms {
     my $data = $_[0];
     my @rooms = ();
-    while ($data =~ /"klubovna-stul(\sklubovna-zamek\sklubovna-zamek-(?<lock>[a-z]+?))?"
-                     .+?(href="\/k\/(?<id>[a-z0-9-]+?)"\sclass="sublink.*?)?
-                     stul-nazev"><u>(?<name>.+?)<\/u>
-                     (\s<small>–\s*(?<topic>.*?)<\/small>)?
-                     .*?<\/[ai]>(\s?<small.+?<\/small>)?\s<\/div>\s
-                     (<div\sclass="klubovna-lidi(\s[a-z-]+)?"\sdata-pocet="\d+">(?<people>.+?)<\/div>)?
-                    /sgx) {
+    while ($data =~ /
+        "klubovna-stul(\sklubovna-zamek\sklubovna-zamek-(?<lock>[a-z]+?))?"
+        .+?(href="\/k\/(?<id>[a-z0-9-]+?)"\sclass="sublink.*?)?
+        stul-nazev"><u>(?<name>.+?)<\/u>
+        (\s<small>–\s*(?<topic>.*?)<\/small>)?
+        .*?<\/[ai]>(\s?<small.+?<\/small>)?\s<\/div>\s
+        (<div\sclass="klubovna-lidi(\s[a-z-]+)?"\sdata-pocet="\d+">(?<people>.+?)<\/div>)?
+        /sgx) {
         my $room = Malicek::Room->new();
         $room->name($+{name});
         $room->id($+{id});
         $room->topic($+{topic} // undef);
         if (defined($+{lock})) {
-            $room->allowed('none') if $+{lock} eq 'zluty';
-            $room->allowed('boys') if $+{lock} eq 'cerveny';
-            $room->allowed('girls') if $+{lock} eq 'modry';
-            $room->allowed('friends') if $+{lock} eq 'zeleny';
+            if ($+{lock} eq 'zluty') {
+                $room->allowed('none');
+            } elsif ($+{lock} eq 'cerveny') {
+                $room->allowed('boys');
+            } elsif ($+{lock} eq 'modry') {
+                $room->allowed('girls');
+            } elsif ($+{lock} eq 'zeleny') {
+                $room->allowed('friends');
+            } else {
+                $room->allowed('unknown');
+            }
         }
         if ($+{people}) {
-            my @people = split('<a href="/u/', $+{people}); shift @people;
+            my @people = split('<a href="/u/', $+{people});
+            shift @people;
             my @users;
             for my $person (@people) {
-                $person =~ /^(?<link>[^"]+).+?
-                            class="sublink(?<sex>\sklubovna-[a-z]+)?".+?
-                            <u><span(?<admin>.+?)?>(?<user>.+?)<\/span><\/u>
-                            (<span\sclass="klubovna-info">(?<age>\d+))?
-                           /sgx;
-                my $user = Malicek::Room::User->new();
+                $person =~ /
+                    ^(?<link>[^"]+).+?
+                    class="sublink(?<sex>\sklubovna-(?>kluk|holka))?".+?
+                    <u><span(?<admin>.+?)?>(?<user>.+?)<\/span><\/u>
+                    (<span\sclass="klubovna-info">(?<age>\d+))?
+                    /sgx;
+                my $user = Malicek::User->new();
                 $user->link($+{link});
                 $user->name($+{user});
                 if ($+{sex}) {
@@ -283,14 +218,18 @@ sub parse_rooms {
                     } else {
                         $user->sex('girl');
                     }
-                } else {
-                    $user->sex('unisex');
                 }
-                $user->age($+{age}) if $+{age};
-                $user->admin(defined($+{admin}) ? [qw/admin/] : []);
+                $user->age($+{age})
+                    if defined($+{age});
+                # Check the string and define admins
+                $user->admin(
+                    defined($+{admin})
+                    ? [ qw/generic/ ]
+                    : []
+                );
                 push @users, $user;
             }
-            $room->users(sort { $a->link cmp $b->link } @users);
+            $room->users([ sort { $a->link cmp $b->link } @users ]);
         }
         push @rooms, $room->dump();
     }
@@ -299,11 +238,13 @@ sub parse_rooms {
 
 sub parse_chat {
     my ($name, $topic, $creator, $allowed, %users, @messages);
-    $_[0] =~ /<!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.+?
-              Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
-              <!--reload\("bleskopopisek"\)-->(?<topic>.*)<!--\/reload-->
-              <\/small><\/h2><p>
-              Stůl\szaložil\/a:\s<a\shref="\/u\/.+?">(?<creator>.+?)<\/a>/sx;
+    $_[0] =~ /
+        <!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.+?
+        Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
+        <!--reload\("bleskopopisek"\)-->(?<topic>[^<]*)<!--\/reload-->
+        <\/small><\/h2><p>
+        Stůl\szaložil\/a:\s<a\shref="\/u\/[^"]+">(?<creator>[^<]+)<\/a>
+        /sx;
     $name = $+{name};
     $topic = $+{topic};
     $creator = $+{creator};
@@ -317,25 +258,31 @@ sub parse_chat {
             $allowed = 'girls';
         } elsif (index($+{lock}, 'locknf.png') != -1) {
             $allowed = 'friends';
+        } else {
+            $allowed = 'unknown';
         }
     }
-    while ($_[0] =~ /<option\svalue="(?<id>\d+)">(?<nick>.+?)<\/option>/sgx) {
+    while ($_[0] =~ /
+        <option\svalue="(?<id>\d+)">(?<nick>.+?)<\/option>
+        /sgx) {
         next if $+{id} == 0;
-        my $user = Malicek::Chat::User->new();
-        $user->name($+{nick});
-        $user->id($+{id});
+        my $user = Malicek::User->new(
+            name => $+{nick},
+            id => $+{id},
+        );
         $users{$user->name} = $user;
     }
-    while ($_[0] =~ /(<span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)"><\/span>)?
-                     <h4\sclass="(?<sex>boy|girl|unisex)">
-                     (?<nick>.+?)<\/h4>
-                     <div\s*class="user-status">
-                     (<p>Je\s*mi:\s*<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
-                     .+?href="\/u\/(?<link>.+?)"\sclass="vizitka"
-                     .+?od\s+(?<since>.+?)<\/b>.+?
-                     Poslední\s*zpráva:\s*<b>(?<last>.+?)<\/b>
-                    /sgx) {
-        $users{$+{nick}} //= Malicek::Chat::User->new();
+    while ($_[0] =~ /
+        (<span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)"><\/span>)?
+        <h4\sclass="(?<sex>boy|girl|unisex)">
+        (?<nick>.+?)<\/h4>
+        <div\s*class="user-status">
+        (<p>Je\s*mi:\s*<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
+        .+?href="\/u\/(?<link>.+?)"\sclass="vizitka"
+        .+?od\s+(?<since>.+?)<\/b>.+?
+        Poslední\s*zpráva:\s*<b>(?<last>.+?)<\/b>
+        /sgx) {
+        $users{$+{nick}} //= Malicek::User->new();
         $users{$+{nick}}->name($+{nick});
         $users{$+{nick}}->link($+{link});
         $users{$+{nick}}->sex($+{sex});
@@ -355,18 +302,18 @@ sub parse_chat {
             } else {
                 @admin = ();
             }
-            $users{$nick}->admin([@admin]);
+            $users{$nick}->admin([ @admin ]);
         }
     }
-    while ($_[0] =~ /<p\sclass="(?<type>system|c-1)">
-                     (<span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
-                     (<img\s.+?\/\/(?<avatar>.+?)">)?
-                     \s*
-                     (?<message>.+?)<\/p>
-                    /sgx) {
-        my $msg = Malicek::Chat::Message->new();
+    while ($_[0] =~ /
+        <p\sclass="(?<type>system|c-1)">
+        (<span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
+        (<img\s.+?\/\/(?<avatar>.+?)">)?
+        \s*
+        (?<message>.+?)<\/p>
+        /sgx) {
+        my $msg = Malicek::Message->new();
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
-        $msg->event(undef);
         if ($+{time}) {
             $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time});
         }
@@ -394,19 +341,23 @@ sub parse_chat {
             }
         } else {
             $+{message} =~ /(?<private><span\sclass="septani"><\/span>)?
-                            <font\scolor="((?<color>\#[a-fA-F0-9]{6})|.+?)">
-                            <strong>(?<nick>.+?)<\/strong>
-                            (\s⇨\s(<em>)?(?<to>.*?)(<\/em>)?)?
+                            <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
+                            <strong>(?<nick>[^<]+)<\/strong>
+                            (\s⇨\s(<em>)?(?<to>[^<]*)(<\/em>)?)?
                             :\s(?<msg>.+?)<\/font>
                            /sgx;
-            $msg->private($+{private} ? [($+{to} || undef)] : []);
+            my $private = $+{private};
             $msg->color($+{color});
-            $msg->nick($+{nick});
+            $msg->from($+{nick});
+            $msg->to($+{to})
+                if $private;
             my $raw = $+{msg};
             $raw =~ s/<img\sclass="smiley"\ssrc=".+?"\salt="(.+?)">?/[$1]/sgx;
-            $raw =~ s/<.+?>//sgx;
+            # Workaround for broken highlights in links
+            $raw =~ s/<\/?em>//sgx;
+            $raw =~ s/<[^>]*>//sgx;
             $msg->message(decode_entities($raw));
-            undef $msg if @{$msg->private} && ! $msg->private->[0];
+            undef $msg if $private && ! $msg->to;
         }
         push @messages, $msg if $msg;
     }
@@ -421,14 +372,15 @@ sub parse_chat {
 }
 
 sub parse_settings {
-    $_[0] =~ /\sname="system"(?<system>\schecked)?
-              .*?name="barvy"(?<colors>\schecked)?
-              .*?name="cas"(?<time>\schecked)?
-              .*?name="ikony"(?<avatars>\schecked)?
-              .*?value="(?<refresh>\d+)"\sselected
-              .*?name="highlight"(?<highlight>\schecked)?
-              .*?name="barva"\svalue="(?<color>\#[a-fA-F0-9]{6})"
-             /sgx;
+    $_[0] =~ /
+        \sname="system"(?<system>\schecked)?
+        .*name="barvy"(?<colors>\schecked)?
+        .*name="cas"(?<time>\schecked)?
+        .*name="ikony"(?<avatars>\schecked)?
+        .*value="(?<refresh>\d+)"\sselected
+        .*name="highlight"(?<highlight>\schecked)?
+        .*name="barva"\svalue="(?<color>\#[a-fA-F0-9]{6})"
+         /sgx;
     return (
         system => $+{system} ? \1 : \0,
         colors => $+{colors} ? \1 : \0,
@@ -441,12 +393,17 @@ sub parse_settings {
 }
 
 sub get_status {
-    my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                 agent => $agent);
-    my $r = $ua->get("${alik}/-/online");
-    redirect('/') unless $r->decoded_content();
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => load_cookies(),
+        agent => $agent,
+    );
+    my $r = $ua->get(
+        "${alik}/-/online"
+    );
+    redirect('/')
+        unless $r->decoded_content();
     save_cookies($ua->cookie_jar());
-    return {parse_status(sanitize($r->decoded_content()))};
+    return { parse_status(sanitize($r->decoded_content())) };
 }
 
 get '/' => sub {
@@ -470,7 +427,10 @@ get '/' => sub {
 };
 
 post '/login' => sub {
-    my ($user, $pass) = (body_parameters->get('user'), body_parameters->get('pass'));
+    my ($user, $pass) = (
+        body_parameters->get('user'),
+        body_parameters->get('pass'),
+    );
     my $cj = login($user, $pass);
     if ($cj) {
         session cookies => (tmpnam())[1];
@@ -482,45 +442,62 @@ post '/login' => sub {
 };
 
 get '/logout' => sub {
-    my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                 agent => $agent);
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => load_cookies(),
+         agent => $agent,
+     );
     $ua->get("$alik/odhlasit");
     logout();
     redirect('/');
 };
 
 get '/status' => sub {
-    redirect('/') unless session('cookies');
+    redirect('/')
+        unless session('cookies');
     return get_status();
 };
 
 get '/rooms' => sub {
-    redirect('/') unless session('cookies');
-    my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                 agent => $agent);
-    my $r = $ua->get("${alik}/k");
-    redirect('/') unless reconcile($r->decoded_content());
+    redirect('/')
+        unless session('cookies');
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => load_cookies(),
+        agent => $agent,
+    );
+    my $r = $ua->get(
+        "${alik}/k",
+    );
+    redirect('/')
+        unless reconcile($r->decoded_content());
     save_cookies($ua->cookie_jar());
-    return [parse_rooms(sanitize($r->decoded_content()))];
+    return [ parse_rooms(sanitize($r->decoded_content())) ];
 };
 
 # TODO: Figure out how to determine we were kicked out for
 # inactivity without autorejoining the room.
 get '/rooms/:id' => sub {
-    redirect('/') unless session('cookies');
-    my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                 agent => $agent,
-                                 max_redirect => 0);
+    redirect('/')
+        unless session('cookies');
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => load_cookies(),
+        agent => $agent,
+        max_redirect => 0,
+    );
     my ($r, $f);
     if (query_parameters->get('query')
         && query_parameters->get('query') eq 'settings') {
         $f = \&parse_settings;
-        $r = $ua->get("${alik}/k/".route_parameters->get('id').'/nastaveni');
+        $r = $ua->get(
+            "${alik}/k/" . route_parameters->get('id') . '/nastaveni',
+        );
     } else {
         $f = \&parse_chat;
-        $r = $ua->get("${alik}/k/".route_parameters->get('id'));
+        $r = $ua->get(
+            "${alik}/k/" . route_parameters->get('id'),
+        );
     }
-    redirect('/') unless reconcile($r->decoded_content());
+    redirect('/')
+        unless reconcile($r->decoded_content());
     save_cookies($ua->cookie_jar());
     if ($r->code == 302) {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
@@ -529,8 +506,10 @@ get '/rooms/:id' => sub {
                 error => int($+{err})
             };
         } elsif ($r->header('Location') eq '/k/') {
-            $ua->get("${alik}/k/".route_parameters->get('id').'/odejit',
-                     Referer => "${alik}/k/".route_parameters->get('id'));
+            $ua->get(
+                "${alik}/k/" . route_parameters->get('id') . '/odejit',
+                Referer => "${alik}/k/" . route_parameters->get('id'),
+            );
             if (query_parameters->get('query')) {
                 # How did we get here?
                 status(501);
@@ -538,32 +517,42 @@ get '/rooms/:id' => sub {
                     error => 501
                 };
             } else {
-                $r = $ua->get("${alik}/k/".route_parameters->get('id'));
+                $r = $ua->get(
+                    "${alik}/k/" . route_parameters->get('id'),
+                );
                 save_cookies($ua->cookie_jar());
             }
         }
     }
-    return {&{$f}(sanitize($r->decoded_content()))};
+    return { &{$f}(sanitize($r->decoded_content())) };
 };
 
 post '/rooms/:id' => sub {
-    redirect('/') unless session('cookies');
+    redirect('/')
+        unless session('cookies');
     my $action = body_parameters->get('action');
-    my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                 agent => $agent);
+    my $ua = LWP::UserAgent->new(
+        cookie_jar => load_cookies(),
+        agent => $agent,
+    );
     if ($action eq 'leave') {
-        $ua->get("${alik}/k/".route_parameters->get('id').'/odejit',
-                 Referer => "${alik}/k/".route_parameters->get('id'));
+        $ua->get(
+            "${alik}/k/" . route_parameters->get('id') . '/odejit',
+            Referer => "${alik}/k/" . route_parameters->get('id'),
+        );
         redirect('/rooms');
     } elsif ($action eq 'post') {
-        $ua->post("${alik}/k/".route_parameters->get('id'),
-                   { text => body_parameters->get('message'),
-                     prijemce => body_parameters->get('to') // 0,
-                     barva => body_parameters->get('color'),
-                   });
-        redirect('/rooms/'.route_parameters->get('id'));
+        $ua->post(
+            "${alik}/k/" . route_parameters->get('id'),
+            {
+                text => body_parameters->get('message'),
+                prijemce => body_parameters->get('to') // 0,
+                barva => body_parameters->get('color'),
+            },
+        );
+        redirect('/rooms/' . route_parameters->get('id'));
     } else {
-        redirect('/rooms/'.route_parameters->get('id'));
+        redirect('/rooms/' . route_parameters->get('id'));
     }
 };
 
@@ -573,40 +562,19 @@ get '/app' => sub {
 
 get '/app/:file?' => sub {
     my $file = route_parameters->get('file') // 'malicek.html';
-    if ($file eq 'malicek.tar.gz') {
-        my @files = qw{
-            malicek.pl
-            public/malicek.html
-            public/malicek.css
-            public/malicek.js
-            public/wtf.html
-            public/LICENSE.txt
-            README.md
-            Containerfile
-            Makefile
-            test.sh
-        };
-        my $regenerate = 0;
-        for (@files) {
-            next if (-f "public/${file}"
-                     && stat("public/${file}")->[9] >= stat($_)->[9]);
-                 $regenerate = 1;
-        }
-        if ($regenerate) {
-            my $tar = Archive::Tar->new();
-            $tar->add_files(@files);
-            $tar->write("public/${file}", COMPRESS_GZIP);
-        }
-    }
     send_file($file);
 };
 
 sub game_lednicka {
     my $r = $_[0] // undef;
     unless ($r) {
-        my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                     agent => $agent);
-        $r = $ua->get("${alik}/-/lednicka");
+        my $ua = LWP::UserAgent->new(
+            cookie_jar => load_cookies(),
+            agent => $agent,
+        );
+        $r = $ua->get(
+            "${alik}/-/lednicka",
+        );
         save_cookies($ua->cookie_jar());
     }
     my $page = sanitize($r->decoded_content());
@@ -621,17 +589,18 @@ sub game_lednicka {
     $fridge{defrost} = $fridge{active} ? ($page !~ /onclick="alert/sx || 0) : 0;
     $fridge{defrost} = ($page =~ /Odmrazení\sčtyřčíslí/sx ? 4 : 3) if $fridge{defrost};
     my @additions;
-    while ($page =~ /<tr\stitle="(?<when>.+?)".+?>
-                      <a\shref=".+?"\starget="_parent">(?<who>.+?)<\/a>\spřičetla?\s
-                     (?<method>.+?)<.+?>
-                     (?<amount>.+?)</sxg) {
+    while ($page =~ /
+        <tr\stitle="(?<when>.+?)".+?>
+        <a\shref=".+?"\starget="_parent">(?<who>.+?)<\/a>\spřičetla?\s
+        (?<method>.+?)<.+?>
+        (?<amount>.+?)</sxg) {
         my ($when, $who, $method, $amount) = ($+{when}, $+{who}, $+{method}, $+{amount});
         $amount =~ s/\+|\s//g; $amount =~ s/&minus;/-/;
         push @additions, {
             who => $who,
             when => $when,
             method => $method,
-            amount => int($amount)
+            amount => int($amount),
         };
     }
     $fridge{additions} = [ @additions ];
@@ -639,7 +608,8 @@ sub game_lednicka {
 }
 
 get '/games/:game' => sub {
-    redirect('/') unless session('cookies');
+    redirect('/')
+        unless session('cookies');
     if (route_parameters->get('game') eq 'lednicka') {
         return game_lednicka();
     }
@@ -648,10 +618,13 @@ get '/games/:game' => sub {
 };
 
 post '/games/:game' => sub {
-    redirect('/') unless session('cookies');
+    redirect('/')
+        unless session('cookies');
     if (route_parameters->get('game') eq 'lednicka') {
-        my $ua = LWP::UserAgent->new(cookie_jar => load_cookies(),
-                                     agent => request->user_agent());
+        my $ua = LWP::UserAgent->new(
+            cookie_jar => load_cookies(),
+            agent => request->user_agent(),
+        );
         my $method;
         if (query_parameters->get('method')) {
             $method = query_parameters->get('method');
