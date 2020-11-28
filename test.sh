@@ -22,7 +22,8 @@ if [ ! -f "${cookies}" ]; then
         -H 'Content-Type: application/json' \
         -L \
         -s \
-        "${endpoint}/login"
+        "${endpoint}/login" \
+        >/dev/null
 fi
 
 curl \

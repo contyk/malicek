@@ -48,6 +48,10 @@ my $alik = 'https://www.alik.cz';
         return $_[0]->{id} = $_[1] // $_[0]->{id};
     }
 
+    sub topic {
+        return $_[0]->{topic} = $_[1] // $_[0]->{topic};
+    }
+
     sub users {
         my ($self, @users) = @_;
         return $_[0]->{users} = scalar(@users) ? [ @users ] : $_[0]->{users};
@@ -61,6 +65,7 @@ my $alik = 'https://www.alik.cz';
         return {
             name => $_[0]->name,
             id => $_[0]->id,
+            topic => $_[0]->topic,
             allowed => $_[0]->allowed // 'all',
             users => $_[0]->users && @{ $_[0]->users } ? [map { $_->dump } @{ $_[0]->users }] : [],
         };
@@ -71,8 +76,8 @@ my $alik = 'https://www.alik.cz';
     package Malicek::Room::User;
     our @ISA = qw/Malicek::Base/;
     # Represents a user in the rooms view
-    sub id {
-        return $_[0]->{id} = $_[1] // $_[0]->{id};
+    sub link {
+        return $_[0]->{link} = $_[1] // $_[0]->{link};
     }
 
     sub name {
@@ -83,31 +88,22 @@ my $alik = 'https://www.alik.cz';
         return $_[0]->{sex} = $_[1] // $_[0]->{sex};
     }
 
+    sub age {
+        return $_[0]->{age} = $_[1] // $_[0]->{age};
+    }
+
     sub admin {
         return $_[0]->{admin} = $_[1] // $_[0]->{admin};
     }
 
     sub dump {
         return {
-            id => $_[0]->id,
+            link => $_[0]->link,
             name => $_[0]->name,
             sex => $_[0]->sex,
+            age => $_[0]->age,
             admin => ($_[0]->admin // []),
         };
-    }
-}
-
-{
-    package Malicek::Chat;
-    our @ISA = qw/Malicek::Base/;
-    # Represents the chat room
-    sub creator {
-    }
-
-    sub users {
-    }
-
-    sub messages {
     }
 }
 
@@ -117,14 +113,6 @@ my $alik = 'https://www.alik.cz';
     # Represents a user in the chat room
     sub id {
         return $_[0]->{id} = $_[1] // $_[0]->{id};
-    }
-
-    sub link {
-        return $_[0]->{link} = $_[1] // $_[0]->{link};
-    }
-
-    sub age {
-        return $_[0]->{age} = $_[1] // $_[0]->{age};
     }
 
     sub since {
@@ -137,12 +125,12 @@ my $alik = 'https://www.alik.cz';
 
     sub dump {
         return {
-            id => $_[0]->id ? 0 + $_[0]->id : undef,
+            id => $_[0]->id ? int($_[0]->id) : undef,
             link => $_[0]->link,
             name => $_[0]->name,
-            admin => ($_[0]->admin // []),
-            age => $_[0]->age ? 0 + $_[0]->age : undef,
             sex => $_[0]->sex,
+            age => $_[0]->age ? int($_[0]->age) : undef,
+            admin => ($_[0]->admin // []),
             since => $_[0]->since,
             last => $_[0]->last,
         };
@@ -263,12 +251,14 @@ sub parse_rooms {
     while ($data =~ /"klubovna-stul(\sklubovna-zamek\sklubovna-zamek-(?<lock>[a-z]+?))?"
                      .+?(href="\/k\/(?<id>[a-z0-9-]+?)"\sclass="sublink.*?)?
                      stul-nazev"><u>(?<name>.+?)<\/u>
+                     (\s<small>–\s*(?<topic>.*?)<\/small>)?
                      .*?<\/[ai]>(\s?<small.+?<\/small>)?\s<\/div>\s
                      (<div\sclass="klubovna-lidi(\s[a-z-]+)?"\sdata-pocet="\d+">(?<people>.+?)<\/div>)?
                     /sgx) {
         my $room = Malicek::Room->new();
         $room->name($+{name});
         $room->id($+{id});
+        $room->topic($+{topic} // undef);
         if (defined($+{lock})) {
             $room->allowed('none') if $+{lock} eq 'zluty';
             $room->allowed('boys') if $+{lock} eq 'cerveny';
@@ -279,12 +269,13 @@ sub parse_rooms {
             my @people = split('<a href="/u/', $+{people}); shift @people;
             my @users;
             for my $person (@people) {
-                $person =~ /^(?<id>[^"]+).+?
+                $person =~ /^(?<link>[^"]+).+?
                             class="sublink(?<sex>\sklubovna-[a-z]+)?".+?
                             <u><span(?<admin>.+?)?>(?<user>.+?)<\/span><\/u>
+                            (<span\sclass="klubovna-info">(?<age>\d+))?
                            /sgx;
                 my $user = Malicek::Room::User->new();
-                $user->id($+{id});
+                $user->link($+{link});
                 $user->name($+{user});
                 if ($+{sex}) {
                     if ($+{sex} eq ' klubovna-kluk') {
@@ -295,10 +286,11 @@ sub parse_rooms {
                 } else {
                     $user->sex('unisex');
                 }
+                $user->age($+{age}) if $+{age};
                 $user->admin(defined($+{admin}) ? [qw/admin/] : []);
                 push @users, $user;
             }
-            $room->users(sort { $a->id cmp $b->id } @users);
+            $room->users(sort { $a->link cmp $b->link } @users);
         }
         push @rooms, $room->dump();
     }
@@ -338,7 +330,7 @@ sub parse_chat {
                      <h4\sclass="(?<sex>boy|girl|unisex)">
                      (?<nick>.+?)<\/h4>
                      <div\s*class="user-status">
-                     (<p>Je\s*mi:\s*<b>(?<age>\d+)\s*let<\/b><\/p>)?
+                     (<p>Je\s*mi:\s*<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
                      .+?href="\/u\/(?<link>.+?)"\sclass="vizitka"
                      .+?od\s+(?<since>.+?)<\/b>.+?
                      Poslední\s*zpráva:\s*<b>(?<last>.+?)<\/b>
@@ -349,7 +341,7 @@ sub parse_chat {
         $users{$+{nick}}->sex($+{sex});
         $users{$+{nick}}->since($+{since});
         $users{$+{nick}}->last($+{last});
-        $users{$+{nick}}->age($+{age});
+        $users{$+{nick}}->age($+{age}) if $+{age};
         if ($+{admin}) {
             my ($admin, $nick, @admin) = ($+{admin}, $+{nick});
             if ($admin =~ /^chef$/) {
@@ -534,7 +526,7 @@ get '/rooms/:id' => sub {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
             status(403);
             return {
-                error => 0 + $+{err}
+                error => int($+{err})
             };
         } elsif ($r->header('Location') eq '/k/') {
             $ua->get("${alik}/k/".route_parameters->get('id').'/odejit',
@@ -639,7 +631,7 @@ sub game_lednicka {
             who => $who,
             when => $when,
             method => $method,
-            amount => 0 + $amount
+            amount => int($amount)
         };
     }
     $fridge{additions} = [ @additions ];

@@ -102,7 +102,7 @@ Provides a list of currently available rooms and their users.
     "name": "Tajný stůl!",
     "users": [
       {
-        "id": "foo",
+        "link": "foo",
         "name": "FoO",
         "sex": "unisex",
         "admin": [
@@ -110,7 +110,7 @@ Provides a list of currently available rooms and their users.
         ]
       },
       {
-        "id": "bar",
+        "link": "bar",
         "name": "bar",
         "sex": "girl",
         "admin": []
