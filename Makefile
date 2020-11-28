@@ -19,6 +19,7 @@ build:
 
 stop:
 	@$(OCI) stop \
+		--time 0 \
 		malicek
 
 clean:

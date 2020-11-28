@@ -37,4 +37,4 @@ RUN \
     mkdir /malicek
 ENV TZ=Europe/Prague
 EXPOSE 3000
-ENTRYPOINT perl /malicek/malicek.pl
+ENTRYPOINT ["perl", "/malicek/malicek.pl"]
