@@ -26,13 +26,25 @@ if [ ! -f "${cookies}" ]; then
         >/dev/null
 fi
 
-curl \
-    -b "${cookies}" \
-    -c "${cookies}" \
-    -L \
-    -s \
-    "${endpoint}/${1}" \
-    | jq
+if [ -z "${2}" ]; then
+    curl \
+        -b "${cookies}" \
+        -c "${cookies}" \
+        -L \
+        -s \
+        "${endpoint}/${1}" \
+        | jq
+else
+    curl \
+        -b "${cookies}" \
+        -c "${cookies}" \
+        -d "${2}" \
+        -H 'Content-Type: application/json' \
+        -L \
+        -s \
+        "${endpoint}/${1}" \
+        | jq
+fi
 
 if [ "${1}" = 'logout' ]; then
     rm -f "${cookies}"
