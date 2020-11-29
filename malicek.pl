@@ -1,4 +1,23 @@
 #!/usr/bin/perl
+# Malíček, an alternative interface for alik.cz.
+#
+# The goal is to provide a fairly stateless and simple REST interface.
+# Malíček only holds Alík's session cookies and issues its own.  It does
+# nothing more than translate authenticated requests against relevant
+# resources upstream.
+#
+# Feature overview:
+#
+#  * Klubovna (partially supported)
+#  * Nástěnky (unsupported)
+#  * Vizitky (unsupported)
+#  * Pošta (unsupported)
+#  * Alíkoviny (unsupported)
+#  * Vtipy (unsupported)
+#  * Hry (partially supported)
+#
+# See public/LICENSE.txt for license and authors.
+
 use strict;
 use warnings;
 use utf8;
@@ -6,15 +25,8 @@ use v5.20;
 
 our $APP = 'Malicek';
 use version 0.77; our $VERSION = version->declare('v0.2.0');
-our $agent = "${APP}/${VERSION}";
+our $AGENT = "${APP}/${VERSION}";
 
-# Malíček, an alternative interface for alik.cz
-# See public/LICENSE.txt for license and authors.
-#
-# TODO: Switch to Moo for OOP
-# TODO: Cleanup
-
-use Archive::Tar;
 use Dancer2;
 use File::stat;
 use File::Temp qw/:POSIX/;
@@ -24,33 +36,38 @@ use LWP::UserAgent;
 
 set serializer => 'JSON';
 set session => 'Simple';
-set session_dir => '/tmp';
+
+our @mo = qw/default xs/;
 
 my $alik = 'https://www.alik.cz';
 
 {
     package Malicek::Room;
-    use Mo qw/default xs/;
+    use Mo @mo;
     has 'name';
     has 'id';
     has 'topic';
-    has 'users' => [];
+    has 'creator';
     has 'allowed' => 'all';
+    has 'users' => [];
+    has 'messages' => [];
     sub dump {
         my $self = shift;
         return {
             name => $self->name,
             id => $self->id,
             topic => $self->topic,
+            creator => $self->creator,
             allowed => $self->allowed,
             users => [ map { $_->dump } $self->users->@* ],
+            messages => [ map { $_->dump } $self->messages->@* ],
         }
     }
 }
 
 {
     package Malicek::User;
-    use Mo qw/default xs/;
+    use Mo @mo;
     has 'name';
     has 'id';
     has 'link';
@@ -75,8 +92,27 @@ my $alik = 'https://www.alik.cz';
 }
 
 {
+    package Malicek::Profile;
+    use Mo @mo;
+    extends 'Malicek::User';
+    has 'avatar';
+    has 'realname';
+    has 'home';
+    has 'hobbies';
+    has 'rank';
+    has 'registered';
+    has 'quest';
+    has 'likes';
+    has 'dislikes';
+    has 'pictures' => [];
+    has 'style';
+    has 'counter';
+    has 'visitors';
+}
+
+{
     package Malicek::Message;
-    use Mo qw/default xs/;
+    use Mo @mo;
     has 'type';
     has 'event';
     has 'from';
@@ -86,15 +122,16 @@ my $alik = 'https://www.alik.cz';
     has 'time';
     has 'avatar';
     sub dump {
+        my $self = shift;
         return {
-            type => $_[0]->type,
-            event => $_[0]->event,
-            from => $_[0]->from,
-            to => $_[0]->to,
-            message => $_[0]->message,
-            time => $_[0]->time,
-            avatar => $_[0]->avatar,
-            color => $_[0]->color,
+            type => $self->type,
+            event => $self->event,
+            from => $self->from,
+            to => $self->to,
+            message => $self->message,
+            time => $self->time,
+            avatar => $self->avatar,
+            color => $self->color,
         };
     }
 }
@@ -103,7 +140,7 @@ sub login {
     my ($user, $pass) = @_;
     my $ua = LWP::UserAgent->new(
         cookie_jar => {},
-        agent => $agent,
+        agent => $AGENT,
         keep_alive => 1
     );
     my $r = $ua->post(
@@ -239,7 +276,7 @@ sub parse_rooms {
 sub parse_chat {
     my ($name, $topic, $creator, $allowed, %users, @messages);
     $_[0] =~ /
-        <!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.+?
+        <!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.*
         Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
         <!--reload\("bleskopopisek"\)-->(?<topic>[^<]*)<!--\/reload-->
         <\/small><\/h2><p>
@@ -275,15 +312,14 @@ sub parse_chat {
     while ($_[0] =~ /
         (<span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)"><\/span>)?
         <h4\sclass="(?<sex>boy|girl|unisex)">
-        (?<nick>.+?)<\/h4>
-        <div\s*class="user-status">
-        (<p>Je\s*mi:\s*<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
-        .+?href="\/u\/(?<link>.+?)"\sclass="vizitka"
-        .+?od\s+(?<since>.+?)<\/b>.+?
-        Poslední\s*zpráva:\s*<b>(?<last>.+?)<\/b>
+        (?<nick>[^<]+)<\/h4>
+        <div\sclass="user-status">
+        (<p>Je\smi:\s<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
+        .+?href="\/u\/(?<link>[^"]+)"\sclass="vizitka"
+        .+?od\s(?<since>[^<]+)<\/b>.+?
+        Poslední\szpráva:\s<b>(?<last>[^<]+)<\/b>
         /sgx) {
-        $users{$+{nick}} //= Malicek::User->new();
-        $users{$+{nick}}->name($+{nick});
+        $users{$+{nick}} //= Malicek::User->new(name => $+{nick});
         $users{$+{nick}}->link($+{link});
         $users{$+{nick}}->sex($+{sex});
         $users{$+{nick}}->since($+{since});
@@ -291,13 +327,13 @@ sub parse_chat {
         $users{$+{nick}}->age($+{age}) if $+{age};
         if ($+{admin}) {
             my ($admin, $nick, @admin) = ($+{admin}, $+{nick});
-            if ($admin =~ /^chef$/) {
+            if ($admin eq 'chef') {
                 push @admin, 'chat';
             } elsif ($admin =~ /^super/) {
                 push @admin, 'rooms' if $admin =~ /^super.*k.*$/;
                 push @admin, 'boards' if $admin =~ /^super.*n.*$/;
                 push @admin, 'blog' if $admin =~ /^super.*r.*$/;
-            } elsif ($admin =~ /^master|guru$/) {
+            } elsif ($admin =~ /^(?>master|guru)$/) {
                 push @admin, $admin;
             } else {
                 @admin = ();
@@ -307,8 +343,8 @@ sub parse_chat {
     }
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
-        (<span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
-        (<img\s.+?\/\/(?<avatar>.+?)">)?
+        (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
+        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?
         \s*
         (?<message>.+?)<\/p>
         /sgx) {
@@ -317,24 +353,25 @@ sub parse_chat {
         if ($+{time}) {
             $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time});
         }
-        $msg->avatar($+{avatar} ? 'https://' . $+{avatar} : undef);
+        $msg->avatar('https://' . $+{avatar})
+            if $+{avatar};
         if ($+{type} eq 'system') {
-            $msg->message($+{message} =~ s/<.+?>|\s*$//sgxr);
-            if ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
+            $msg->message($+{message} =~ s/<[^>]+>|\s*$//sgxr);
+            if ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event({type => 'join', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) (vstala? od|přeš(el|la) k jinému) stolu\.$/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) (?>vstala? od|přeš(?>el|la) k jinému) stolu\.$/) {
                 $msg->event({type => 'part', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Alík odebral kamarád(ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
+            } elsif ($msg->message() =~ /^Alík odebral kamarád(?>ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
                 $msg->event({type => 'part', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) zamkla? stůl/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) zamkla? stůl/) {
                 $msg->event({type => 'lock', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) odemkla? stůl/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) odemkla? stůl/) {
                 $msg->event({type => 'unlock', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) vyčistila? stůl\.$/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) vyčistila? stůl\.$/) {
                 $msg->event({type => 'clear', source => $+{nick}, target => undef});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
                 $msg->event({type => 'kick', source => undef, target => $+{nick}});
-            } elsif ($msg->message() =~ /^Kamarád(ka)? (?<nick>.+) předala? správce\.$/) {
+            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) předala? správce\.$/) {
                 $msg->event({type => 'oper', source => $+{nick}, target => undef});
             } else {
                 $msg->event({type => 'unknown', source => undef, target => undef});
@@ -343,7 +380,7 @@ sub parse_chat {
             $+{message} =~ /(?<private><span\sclass="septani"><\/span>)?
                             <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
                             <strong>(?<nick>[^<]+)<\/strong>
-                            (\s⇨\s(<em>)?(?<to>[^<]*)(<\/em>)?)?
+                            (\s⇨\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
                             :\s(?<msg>.+?)<\/font>
                            /sgx;
             my $private = $+{private};
@@ -352,7 +389,7 @@ sub parse_chat {
             $msg->to($+{to})
                 if $private;
             my $raw = $+{msg};
-            $raw =~ s/<img\sclass="smiley"\ssrc=".+?"\salt="(.+?)">?/[$1]/sgx;
+            $raw =~ s/<img\sclass="smiley"\ssrc="[^"]+"\salt="([^"]+)">?/[$1]/sgx;
             # Workaround for broken highlights in links
             $raw =~ s/<\/?em>//sgx;
             $raw =~ s/<[^>]*>//sgx;
@@ -395,7 +432,7 @@ sub parse_settings {
 sub get_status {
     my $ua = LWP::UserAgent->new(
         cookie_jar => load_cookies(),
-        agent => $agent,
+        agent => $AGENT,
     );
     my $r = $ua->get(
         "${alik}/-/online"
@@ -410,7 +447,7 @@ get '/' => sub {
     my %selfid = (
         app => $APP,
         version => $VERSION->stringify(),
-        agent => $agent,
+        agent => $AGENT,
     );
     if (session('cookies')) {
         return {
@@ -444,7 +481,7 @@ post '/login' => sub {
 get '/logout' => sub {
     my $ua = LWP::UserAgent->new(
         cookie_jar => load_cookies(),
-         agent => $agent,
+         agent => $AGENT,
      );
     $ua->get("$alik/odhlasit");
     logout();
@@ -462,7 +499,7 @@ get '/rooms' => sub {
         unless session('cookies');
     my $ua = LWP::UserAgent->new(
         cookie_jar => load_cookies(),
-        agent => $agent,
+        agent => $AGENT,
     );
     my $r = $ua->get(
         "${alik}/k",
@@ -480,7 +517,7 @@ get '/rooms/:id' => sub {
         unless session('cookies');
     my $ua = LWP::UserAgent->new(
         cookie_jar => load_cookies(),
-        agent => $agent,
+        agent => $AGENT,
         max_redirect => 0,
     );
     my ($r, $f);
@@ -533,7 +570,7 @@ post '/rooms/:id' => sub {
     my $action = body_parameters->get('action');
     my $ua = LWP::UserAgent->new(
         cookie_jar => load_cookies(),
-        agent => $agent,
+        agent => $AGENT,
     );
     if ($action eq 'leave') {
         $ua->get(
@@ -570,7 +607,7 @@ sub game_lednicka {
     unless ($r) {
         my $ua = LWP::UserAgent->new(
             cookie_jar => load_cookies(),
-            agent => $agent,
+            agent => $AGENT,
         );
         $r = $ua->get(
             "${alik}/-/lednicka",
