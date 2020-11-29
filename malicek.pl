@@ -294,10 +294,10 @@ sub parse_rooms {
         (?<lock>cerveny|zeleny|modry|zluty))?">\s+
         (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev">
         |<i\sclass="stul-nazev">)<u>(?<name>[^<]+)<\/u>
-        (?>\s+<small>–\s(?<topic>[^<]+)<\/small>)?<\/[ai]>
+        (?>\s+<small>(?>–\s(?<topic>[^<]+)|[^<]*)<\/small>)?<\/[ai]>
         (?><small\sclass=fr>\(založila?\s<a\shref="\/u\/[^"]+">
         <span>(?<creator>[^<]+)<\/span><\/a>\)<\/small>)?\s+<\/div>\s+
-        (?><div\sclass="klubovna-lidi"\sdata-pocet="\d+">
+        (?><div\sclass="klubovna-lidi(?>\s[^"]+)?"\sdata-pocet="\d+">
         (?<people>.+?)<\/div>)?
         /sgx) {
         my $room = Malicek::Room->new(
@@ -555,7 +555,7 @@ sub get_status {
     my $r = session('ua')->get(
         "${alik}/-/online"
     );
-    redirect('/')
+    redirect('/malicek')
         unless $r->decoded_content;
     return parse_status(sanitize($r->decoded_content));
 }
@@ -570,8 +570,8 @@ hook before => sub {
         )
             unless session('ua');
     } else {
-        forward '/'
-            unless request->path =~ /^\/(?>login|app(?>\/.*)?)?$/;
+        forward('/malicek')
+            unless request->path =~ /^\/(?>malicek|login)?$/;
     }
 };
 
@@ -581,6 +581,10 @@ hook after => sub {
 };
 
 get '/' => sub {
+    send_file('index.html');
+};
+
+get '/malicek' => sub {
     my %selfid = (
         app => $APP,
         version => $VERSION->stringify,
@@ -613,7 +617,7 @@ post '/login' => sub {
     } else {
         logout;
     }
-    redirect('/');
+    redirect('/malicek');
 };
 
 get '/logout' => sub {
@@ -621,7 +625,7 @@ get '/logout' => sub {
         "$alik/odhlasit",
     );
     logout;
-    redirect('/');
+    redirect('/malicek');
 };
 
 get '/status' => sub {
@@ -636,9 +640,27 @@ get '/rooms/' => sub {
     my $r = session('ua')->get(
         "${alik}/k",
     );
-    redirect('/')
+    redirect('/malicek')
         unless reconcile($r->decoded_content);
     return parse_rooms(sanitize($r->decoded_content));
+};
+
+post '/rooms/' => sub {
+    my $room = body_parameters->get('name');
+    my $r = session('ua')->post(
+        "${alik}/k/pridat",
+        {
+            nazev => $room,
+            odeslat => 'odeslat',
+        },
+    );
+    if ($r->code == 302) {
+        $r->header('Location') =~ /\/k\/(?<id>.+)$/;
+        redirect('/rooms/' . $+{id}, 201);
+    } else {
+        status(409);
+        return {};
+    }
 };
 
 # TODO: Figure out how to determine we were kicked out for
@@ -657,7 +679,7 @@ get '/rooms/:id' => sub {
             "${alik}/k/" . route_parameters->get('id'),
         );
     }
-    redirect('/')
+    redirect('/malicek')
         unless reconcile($r->decoded_content);
     if ($r->code == 302) {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
@@ -709,15 +731,6 @@ post '/rooms/:id' => sub {
     }
 };
 
-get '/app' => sub {
-    redirect '/app/';
-};
-
-get '/app/:file?' => sub {
-    my $file = route_parameters->get('file') // 'malicek.html';
-    send_file($file);
-};
-
 sub game_lednicka {
     my $r = $_[0] // undef;
     unless ($r) {
@@ -728,7 +741,7 @@ sub game_lednicka {
     my $page = sanitize($r->decoded_content);
     if ($page =~ /Nejsi\spřihlášen/sx) {
         logout;
-        redirect('/');
+        redirect('/malicek');
     }
     my $fridge = Malicek::Game::Lednicka->new(
         active =>

@@ -164,8 +164,8 @@ function checkstatus() {
             }
         }
     };
-    rm.open('GET', '/api/status');
-    rf.open('GET', '/api/games/lednicka');
+    rm.open('GET', '/status');
+    rf.open('GET', '/games/lednicka');
     if (document.getElementById('mailnotification').style.display !== 'inline-block') {
         rm.send();
     }
@@ -187,7 +187,7 @@ function playfridge() {
         }
     }
     r.timeout = timeout;
-    r.open('POST', '/api/games/lednicka');
+    r.open('POST', '/games/lednicka');
     r.send();
 }
 
@@ -217,7 +217,7 @@ function submit() {
     }
     if (to !== null) {
         var r = new XMLHttpRequest();
-        r.open('POST', '/api/rooms/' + room);
+        r.open('POST', '/rooms/' + room);
         r.onreadystatechange = function() {
             if (this.readyState !== 4) {
                 return false;
@@ -242,7 +242,7 @@ function noop() {
         return false;
     }
     var r = new XMLHttpRequest();
-    r.open('POST', '/api/rooms/' + room);
+    r.open('POST', '/rooms/' + room);
     r.timeout = timeout;
     r.setRequestHeader('Content-Type', 'application/json');
     r.send(JSON.stringify({
@@ -297,7 +297,7 @@ function bubble(message, doscroll) {
         var author = document.createElement('div');
         var time = document.createElement('div');
         bubble.className = 'bubble';
-        if (message.nick === nick) {
+        if (message.from === nick) {
             bubble.className += ' my-message';
         } else {
             bubble.className += ' message';
@@ -307,10 +307,10 @@ function bubble(message, doscroll) {
         }
         header.className = 'bubble-header';
         author.className = 'bubble-author';
-        author.appendChild(document.createTextNode(message.nick));
+        author.appendChild(document.createTextNode(message.from));
         time.className = 'bubble-time';
         header.appendChild(author);
-        if (message.private.length) {
+        if (message.to) {
             bubble.className += ' private';
             bubble.style.background = 'inherit';
             if (message.color) {
@@ -319,9 +319,9 @@ function bubble(message, doscroll) {
             }
             var recipient = document.createElement('div');
             recipient.className = 'bubble-recipient';
-            recipient.appendChild(document.createTextNode(message.private[0]));
+            recipient.appendChild(document.createTextNode(message.to));
             header.appendChild(recipient);
-            if (message.private[0] === nick) {
+            if (message.to === nick) {
                 alarm = 1;
             }
         }
@@ -336,7 +336,7 @@ function bubble(message, doscroll) {
             avatar = document.createElement('div');
             avatar.className = 'avatar';
             avatar.style.backgroundImage = 'url(' + message.avatar + ')';
-            if (message.private.length) {
+            if (message.to) {
                 avatar.style.borderColor = message.color;
             }
             bubble.appendChild(avatar);
@@ -347,13 +347,13 @@ function bubble(message, doscroll) {
         text.innerHTML = fixmessage(message.message);
         bubble.appendChild(text);
         bubble.addEventListener('click', function() {
-            if (message.private.length) {
-                if (message.nick === nick) {
-                    setrecipient(message.private[0]);
+            if (message.to) {
+                if (message.from === nick) {
+                    setrecipient(message.to);
                     return true;
                 }
             }
-            setrecipient(message.nick)
+            setrecipient(message.from)
         });
     }
     var shouldscroll = doscroll;
@@ -459,7 +459,7 @@ function rooms() {
         }
     };
     r.timeout = timeout;
-    r.open('GET', '/api/rooms');
+    r.open('GET', '/rooms/');
     r.send();
 }
 
@@ -489,7 +489,7 @@ function setup() {
         document.querySelector('meta[name=theme-color]').setAttribute('content', color);
     };
     r.timeout = timeout;
-    r.open('GET', '/api/rooms/' + room + '?query=settings', true);
+    r.open('GET', '/rooms/' + room + '?query=settings', true);
     r.send();
 }
 
@@ -520,12 +520,10 @@ function chat(doscroll) {
             index = messages.length - 1;
         } else {
             for (var i in messages) {
-                if (last.nick === messages[i].nick
+                if (last.nick === messages[i].from
                     && last.message === messages[i].message
-                    && last.private.length == messages[i].private.length
-                    && last.private.sort().every(function(val, idx) {
-                        return val === messages[i].private.sort()[idx]
-                    })) {
+                    && last.to === messages[i].to
+                    ) {
                     break;
                 }
                 index++;
@@ -535,9 +533,9 @@ function chat(doscroll) {
             bubble(messages[i], doscroll);
         }
         last = {};
-        last.nick = messages[0].nick;
+        last.nick = messages[0].from;
         last.message = messages[0].message;
-        last.private = messages[0].private.sort();
+        last.to = messages[0].to;
         usermap = {};
         document.getElementById('users').textContent = '';
         for (var i in users.sort(function(a, b) { return a.link.localeCompare(b.link) })) {
@@ -598,7 +596,7 @@ function chat(doscroll) {
         }
     };
     r.timeout = timeout;
-    r.open('GET', '/api/rooms/' + room);
+    r.open('GET', '/rooms/' + room);
     r.send();
 }
 
@@ -625,7 +623,7 @@ function leave(ev, mode) {
             }
         }
     };
-    r.open('POST', '/api/rooms/' + room, false);
+    r.open('POST', '/rooms/' + room, false);
     r.setRequestHeader('Content-Type', 'application/json');
     r.send(JSON.stringify({
         action: 'leave'
@@ -654,7 +652,7 @@ function login() {
             document.getElementById('password').value = '';
         }
     }
-    r.open('POST', '/api/login', false);
+    r.open('POST', '/login', false);
     r.setRequestHeader('Content-Type', 'application/json');
     r.send(JSON.stringify({
         user: document.getElementById('username').value,
@@ -675,7 +673,7 @@ function logout() {
             setmode('login');
         }
     };
-    r.open('GET', '/api/logout', false);
+    r.open('GET', '/logout', false);
     r.send();
 }
 
@@ -693,7 +691,7 @@ function reconcile() {
             }
         }
     };
-    r.open('GET', '/api/', false);
+    r.open('GET', '/malicek', false);
     r.send();
 }
 
