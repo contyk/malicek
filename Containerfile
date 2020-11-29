@@ -17,6 +17,7 @@ RUN \
     cpanm -in --no-man-pages --curl --no-wget --no-lwp \
         CGI::Deurl::XS \
         Class::XSAccessor \
+        Cpanel::JSON::XS \
         Dancer2 \
         Dancer2::Serializer::JSON \
         Dancer2::Session::Simple \
@@ -24,11 +25,15 @@ RUN \
         File::Temp \
         HTML::Entities \
         HTTP::Cookies \
+        HTTP::XSCookies \
+        HTTP::XSHeaders \
         LWP::Protocol::https \
         LWP::UserAgent \
+        Math::Random::ISAAC::XS \
         Mo \
         Mo::default \
         Mo::xs \
+        Type::Tiny::XS \
         URL::Encode::XS ;\
     apk del \
         curl \
