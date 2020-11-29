@@ -71,6 +71,7 @@ my $alik = 'https://www.alik.cz';
     has 'link';
     has 'age';
     has 'sex' => 'unisex';
+    has 'avatar';
     has 'admin' => [];
     has 'since';
     has 'last';
@@ -82,6 +83,7 @@ my $alik = 'https://www.alik.cz';
             link => $self->link,
             age => $self->age,
             sex => $self->sex,
+            avatar => 'https://' . $self->avatar,
             admin => $self->admin,
             since => $self->since,
             last => $self->last,
@@ -93,7 +95,6 @@ my $alik = 'https://www.alik.cz';
     package Malicek::Profile;
     use Mo qw/default xs/;
     extends 'Malicek::User';
-    has 'avatar';
     has 'realname';
     has 'home';
     has 'hobbies';
@@ -106,6 +107,10 @@ my $alik = 'https://www.alik.cz';
     has 'style';
     has 'counter';
     has 'visitors';
+    sub dump {
+        my $self = shift;
+        return {};
+    }
 }
 
 {
@@ -172,6 +177,42 @@ my $alik = 'https://www.alik.cz';
             refresh => int($self->refresh),
         };
     }
+}
+
+{
+    package Malicek::Game::Lednicka;
+    use Mo qw/default xs/;
+    has 'active';
+    has 'defrost';
+    has 'total';
+    has additions => [];
+    sub dump {
+        my $self = shift;
+        return {
+            active => $self->active,
+            defrost => $self->defrost,
+            total => $self->total,
+            additions => [ map { $_->dump } $self->additions->@* ],
+        };
+    }
+}
+
+{
+    package Malicek::Game::Lednicka::Addition;
+    use Mo qw/default xs/;
+    has 'who';
+    has 'when';
+    has 'method';
+    has 'amount';
+    sub dump {
+        my $self = shift;
+        return {
+            who => $self->who,
+            when => $self->when,
+            method => $self->method,
+            amount => int($self->amount),
+        };
+    };
 }
 
 sub login {
@@ -241,7 +282,7 @@ sub parse_status {
     return {
         mail => int($+{mail}),
         people => int($+{people}),
-        cash => int($+{cash} =~ s/\s//gr),
+        cash => int($+{cash} =~ s/\s+//gr),
     };
 }
 
@@ -249,17 +290,23 @@ sub parse_rooms {
     my $data = $_[0];
     my @rooms = ();
     while ($data =~ /
-        "klubovna-stul(\sklubovna-zamek\sklubovna-zamek-(?<lock>[a-z]+?))?"
-        .+?(href="\/k\/(?<id>[a-z0-9-]+?)"\sclass="sublink.*?)?
-        stul-nazev"><u>(?<name>.+?)<\/u>
-        (\s<small>–\s*(?<topic>.*?)<\/small>)?
-        .*?<\/[ai]>(\s?<small.+?<\/small>)?\s<\/div>\s
-        (<div\sclass="klubovna-lidi(\s[a-z-]+)?"\sdata-pocet="\d+">(?<people>.+?)<\/div>)?
+        <li>\s+<div\sclass="klubovna-stul(?>\sklubovna-zamek\sklubovna-zamek-
+        (?<lock>cerveny|zeleny|modry|zluty))?">\s+
+        (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev">
+        |<i\sclass="stul-nazev">)<u>(?<name>[^<]+)<\/u>
+        (?>\s+<small>–\s(?<topic>[^<]+)<\/small>)?<\/[ai]>
+        (?><small\sclass=fr>\(založila?\s<a\shref="\/u\/[^"]+">
+        <span>(?<creator>[^<]+)<\/span><\/a>\)<\/small>)?\s+<\/div>\s+
+        (?><div\sclass="klubovna-lidi"\sdata-pocet="\d+">
+        (?<people>.+?)<\/div>)?
         /sgx) {
-        my $room = Malicek::Room->new();
-        $room->name($+{name});
+        my $room = Malicek::Room->new(
+            name => $+{name},
+        );
         $room->id($+{id})
             if defined($+{id});
+        $room->creator($+{creator})
+            if defined($+{creator});
         $room->topic($+{topic})
             if defined($+{topic});
         if (defined($+{lock})) {
@@ -271,47 +318,59 @@ sub parse_rooms {
                 $room->allowed('girls');
             } elsif ($+{lock} eq 'zeleny') {
                 $room->allowed('friends');
-            } else {
-                $room->allowed('unknown');
             }
         }
-        if ($+{people}) {
-            my @people = split('<a href="/u/', $+{people});
-            shift @people;
-            my @users;
-            for my $person (@people) {
-                $person =~ /
-                    ^(?<link>[^"]+).+?
-                    class="sublink(?<sex>\sklubovna-(?>kluk|holka))?".+?
-                    <u><span(?<admin>.+?)?>(?<user>.+?)<\/span><\/u>
-                    (<span\sclass="klubovna-info">(?<age>\d+))?
-                    /sgx;
-                my $user = Malicek::User->new(
-                    name => $+{user},
-                    link => $+{link},
-                );
-                if (defined($+{sex})) {
-                    if ($+{sex} eq ' klubovna-kluk') {
-                        $user->sex('boy');
-                    } else {
-                        $user->sex('girl');
+        my $people = $+{people};
+        while ($people =~ /
+            <a\shref="\/u\/(?<link>[^"]+)"\sclass="sublink
+            (?>\sklubovna-(?<sex>kluk|holka))?">
+            (?><img\ssrc="\/\/(?<avatar>[^"]+)">)?<u>
+            <span(?>\sclass="(?<admin>[^"]+)"\stitle="[^"]+")?>
+            (?<name>[^<]+)<\/span><\/u><span\sclass="klubovna-info">
+            (?>(?<age>\d+)\slet|dítě|dospěl[ýá])<\/span><\/a>
+            /sgx) {
+            my $user = Malicek::User->new(
+                name => $+{name},
+                link => $+{link},
+            );
+            $user->age($+{age})
+                if defined($+{age});
+            if (defined($+{sex})) {
+                if ($+{sex} eq 'kluk') {
+                    $user->sex('boy');
+                } else {
+                    $user->sex('girl');
+                }
+            }
+            $user->avatar($+{avatar})
+                if defined($+{avatar});
+            if (defined($+{admin})) {
+                my $admin = $+{admin};
+                if ($admin eq 'uzivatel-podspravce') {
+                    push $user->admin->@*, 'chat';
+                } else {
+                    if ($admin =~ /uzivatel-zverolekar/) {
+                        push $user->admin->@*, 'guru';
+                    }
+                    if ($admin =~ /uzivatel-spravce/) {
+                        push $user->admin->@*, 'master';
+                    }
+                    if ($admin =~ /uzivatel-podspravce-\d\d1/) {
+                        push $user->admin->@*, 'boards';
+                    }
+                    if ($admin =~ /uzivatel-podspravce-\d1\d/) {
+                        push $user->admin->@*, 'rooms';
+                    }
+                    if ($admin =~ /uzivatel-podspravce-1\d\d/) {
+                        push $user->admin->@*, 'blog';
                     }
                 }
-                $user->age($+{age})
-                    if defined($+{age});
-                # Check the string and define admins
-                $user->admin(
-                    defined($+{admin})
-                    ? [ qw/generic/ ]
-                    : []
-                );
-                push @users, $user;
             }
-            $room->users([ sort { $a->link cmp $b->link } @users ]);
+            push $room->users->@*, $user;
         }
-        push @rooms, $room->dump();
+        push @rooms, $room->dump;
     }
-    return [ sort { fc($a->{name}) cmp fc($b->{name}) } @rooms ];
+    return \@rooms;
 }
 
 sub parse_chat {
@@ -356,7 +415,7 @@ sub parse_chat {
         <h4\sclass="(?<sex>boy|girl|unisex)">
         (?<nick>[^<]+)<\/h4>
         <div\sclass="user-status">
-        (<p>Je\smi:\s<b>(?<age>\d+)\s*[^<]+<\/b><\/p>)?
+        (<p>Je\smi:\s<b>(?<age>\d+)\s+[^<]+<\/b><\/p>)?
         .+?href="\/u\/(?<link>[^"]+)"\sclass="vizitka"
         .+?od\s(?<since>[^<]+)<\/b>.+?
         Poslední\szpráva:\s<b>(?<last>[^<]+)<\/b>
@@ -388,7 +447,7 @@ sub parse_chat {
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
         (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?
-        \s*
+        \s+
         (?<message>.+?)<\/p>
         /sgx) {
         my $msg = Malicek::Message->new();
@@ -398,7 +457,7 @@ sub parse_chat {
         $msg->avatar('https://' . $+{avatar})
             if $+{avatar};
         if ($+{type} eq 'system') {
-            $msg->message($+{message} =~ s/<[^>]+>|\s*$//sgxr);
+            $msg->message($+{message} =~ s/<[^>]+>|\s+$//sgxr);
             if ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'join',
@@ -685,29 +744,32 @@ sub game_lednicka {
         logout();
         redirect('/');
     }
-    my %fridge;
-    $fridge{active} = $page !~ /Je\spřičteno!/sx || 0;
-    $fridge{total} = ($page =~ /<a\shref="\/-\/lednicka".+?>\s*([0-9\s]+)</sx)[0];
-    $fridge{total} =~ s/\s//g; $fridge{total} += 0;
-    $fridge{defrost} = $fridge{active} ? ($page !~ /onclick="alert/sx || 0) : 0;
-    $fridge{defrost} = ($page =~ /Odmrazení\sčtyřčíslí/sx ? 4 : 3) if $fridge{defrost};
-    my @additions;
+    my $fridge = Malicek::Game::Lednicka->new(
+        active =>
+            $page !~/Je\spřičteno!/sx
+            || 0,
+        total =>
+            ($page =~ /<a\shref="\/-\/lednicka".+?>\s+([0-9\s]+)</sx)[0]
+            =~ s/\s+//sgr,
+    );
+    $fridge->defrost($fridge->active ? ($page !~ /onclick="alert/sx || 0) : 0);
+    $fridge->defrost($page =~ /Odmrazení\sčtyřčíslí/sx ? 4 : 3)
+        if $fridge->defrost;
     while ($page =~ /
-        <tr\stitle="(?<when>.+?)".+?>
-        <a\shref=".+?"\starget="_parent">(?<who>.+?)<\/a>\spřičetla?\s
-        (?<method>.+?)<.+?>
-        (?<amount>.+?)</sxg) {
-        my ($when, $who, $method, $amount) = ($+{when}, $+{who}, $+{method}, $+{amount});
-        $amount =~ s/\+|\s//g; $amount =~ s/&minus;/-/;
-        push @additions, {
-            who => $who,
-            when => $when,
-            method => $method,
-            amount => int($amount),
-        };
+        <tr\stitle="(?<when>[^"]+)"><td><a\shref="[^"]+"\starget="_parent">
+        (?<who>[^<]+)<\/a>\spřičetla?\s(?<method>[^<]+)
+        <td\sstyle="color:\srgb\(\d+,\s\d+,\s\d+\)">(?<amount>[^<]+)/sgx) {
+        my $addition = Malicek::Game::Lednicka::Addition->new(
+            who => $+{who},
+            when => $+{when},
+            method => $+{method},
+            amount => $+{amount},
+        );
+        $addition->amount($addition->amount =~ s/\+|\s+//sgr);
+        $addition->amount($addition->amount =~ s/&minus;/-/r);
+        push $fridge->additions->@*, $addition;
     }
-    $fridge{additions} = \@additions;
-    return \%fridge;
+    return $fridge->dump;
 }
 
 get '/games/:game' => sub {
@@ -738,7 +800,9 @@ post '/games/:game' => sub {
                 return {};
             }
             my $factor = 10 ** $fridge->{defrost} if $fridge->{defrost};
-            my $defrost = $fridge->{defrost} ? ((int($fridge->{total} / $factor) + 1) * $factor) - $fridge->{total} : 0;
+            my $defrost = $fridge->{defrost}
+                ? ((int($fridge->{total} / $factor) + 1) * $factor) - $fridge->{total}
+                : 0;
             my ($one, $c) = (0, 1.01);
             map { $c -= 0.01; $one += $c * $_->{amount} } @{$fridge->{additions}};
             $one = int($one / 100);
@@ -757,7 +821,14 @@ post '/games/:game' => sub {
             );
             $method = (sort { $methods{$a} <=> $methods{$b} } keys %methods)[-1];
         }
-        return game_lednicka($ua->post("${alik}/-/lednicka", [ pricti => $method ]));
+        return game_lednicka(
+            $ua->post(
+                "${alik}/-/lednicka",
+                [
+                    pricti => $method,
+                ]
+            ),
+        );
     }
     status(400);
     return {};
