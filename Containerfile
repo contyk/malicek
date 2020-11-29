@@ -29,7 +29,7 @@ RUN \
         Mo \
         Mo::default \
         Mo::xs \
-        URL::Encode::Xs ;\
+        URL::Encode::XS ;\
     apk del \
         curl \
         gcc \
