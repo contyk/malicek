@@ -232,7 +232,7 @@ sub login {
             pamatovat => 'on',
         ],
     );
-    if ($r->is_redirect()) {
+    if ($r->is_redirect) {
         return $ua;
     } else {
         return undef;
@@ -251,7 +251,7 @@ sub reconcile {
     if ($_[0] =~ /
         <a\shref="\/prihlasit[^"]*"\sclass="[^"]+">Přihlásit<\/a>
         /sx) {
-        logout();
+        logout;
         return 0;
     }
     return 1;
@@ -263,7 +263,7 @@ sub load_cookies {
             file => session('cookies'),
             autosave => 0,
         )
-        : HTTP::Cookies->new();
+        : HTTP::Cookies->new;
 }
 
 sub save_cookies {
@@ -449,7 +449,7 @@ sub parse_chat {
         \s+
         (?<message>.+?)<\/p>
         /sgx) {
-        my $msg = Malicek::Message->new();
+        my $msg = Malicek::Message->new;
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
         $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time})
             if $+{time};
@@ -457,42 +457,42 @@ sub parse_chat {
             if $+{avatar};
         if ($+{type} eq 'system') {
             $msg->message($+{message} =~ s/<[^>]+>|\s+$//sgxr);
-            if ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
+            if ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'join',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) (?>vstala? od|přeš(?>el|la) k jinému) stolu\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) (?>vstala? od|přeš(?>el|la) k jinému) stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'part',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Alík odebral kamarád(?>ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
+            } elsif ($msg->message =~ /^Alík odebral kamarád(?>ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'part',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) zamkla? stůl/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) zamkla? stůl/) {
                 $msg->event(Malicek::Event->new(
                     type => 'lock',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) odemkla? stůl/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) odemkla? stůl/) {
                 $msg->event(Malicek::Event->new(
                     type => 'unlock',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) vyčistila? stůl\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) vyčistila? stůl\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'clear',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'kick',
                     target => $+{nick},
                 ));
-            } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) předala? správce\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) předala? správce\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'oper',
                     source => $+{nick},
@@ -556,34 +556,34 @@ sub get_status {
         "${alik}/-/online"
     );
     redirect('/')
-        unless $r->decoded_content();
-    return parse_status(sanitize($r->decoded_content()));
+        unless $r->decoded_content;
+    return parse_status(sanitize($r->decoded_content));
 }
 
 hook before => sub {
     if (session('cookies')) {
         session ua => LWP::UserAgent->new(
             agent => $AGENT,
-            cookie_jar => load_cookies(),
+            cookie_jar => load_cookies,
             keep_alive => 1,
             max_redirect => 0,
         )
             unless session('ua');
     } else {
         forward '/'
-            unless request->path =~ /^\/(?>login)?$/;
+            unless request->path =~ /^\/(?>login|app(?>\/.*)?)?$/;
     }
 };
 
 hook after => sub {
-    save_cookies()
+    save_cookies
         if session('cookies');
 };
 
 get '/' => sub {
     my %selfid = (
         app => $APP,
-        version => $VERSION->stringify(),
+        version => $VERSION->stringify,
         agent => $AGENT,
     );
     if (session('cookies')) {
@@ -607,11 +607,11 @@ post '/login' => sub {
     );
     my $ua = login($user, $pass);
     if ($ua) {
-        session cookies => (tmpnam())[1];
+        session cookies => (tmpnam)[1];
         session ua => $ua;
-        save_cookies();
+        save_cookies;
     } else {
-        logout();
+        logout;
     }
     redirect('/');
 };
@@ -620,21 +620,25 @@ get '/logout' => sub {
     session('ua')->get(
         "$alik/odhlasit",
     );
-    logout();
+    logout;
     redirect('/');
 };
 
 get '/status' => sub {
-    return get_status();
+    return get_status;
 };
 
 get '/rooms' => sub {
+    redirect('/rooms/');
+};
+
+get '/rooms/' => sub {
     my $r = session('ua')->get(
         "${alik}/k",
     );
     redirect('/')
-        unless reconcile($r->decoded_content());
-    return parse_rooms(sanitize($r->decoded_content()));
+        unless reconcile($r->decoded_content);
+    return parse_rooms(sanitize($r->decoded_content));
 };
 
 # TODO: Figure out how to determine we were kicked out for
@@ -654,7 +658,7 @@ get '/rooms/:id' => sub {
         );
     }
     redirect('/')
-        unless reconcile($r->decoded_content());
+        unless reconcile($r->decoded_content);
     if ($r->code == 302) {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
             status(403);
@@ -679,7 +683,7 @@ get '/rooms/:id' => sub {
             }
         }
     }
-    return &{$f}(sanitize($r->decoded_content()));
+    return &{$f}(sanitize($r->decoded_content));
 };
 
 post '/rooms/:id' => sub {
@@ -721,9 +725,9 @@ sub game_lednicka {
             "${alik}/-/lednicka",
         );
     }
-    my $page = sanitize($r->decoded_content());
+    my $page = sanitize($r->decoded_content);
     if ($page =~ /Nejsi\spřihlášen/sx) {
-        logout();
+        logout;
         redirect('/');
     }
     my $fridge = Malicek::Game::Lednicka->new(
@@ -756,7 +760,7 @@ sub game_lednicka {
 
 get '/games/:game' => sub {
     if (route_parameters->get('game') eq 'lednicka') {
-        return game_lednicka();
+        return game_lednicka;
     }
     status(400);
     return {};
@@ -768,7 +772,7 @@ post '/games/:game' => sub {
         if (query_parameters->get('method')) {
             $method = query_parameters->get('method');
         } else {
-            my $fridge = game_lednicka();
+            my $fridge = game_lednicka;
             unless ($fridge->{active}) {
                 status(409);
                 return {};
@@ -780,8 +784,8 @@ post '/games/:game' => sub {
             my ($one, $c) = (0, 1.01);
             map { $c -= 0.01; $one += $c * $_->{amount} } @{$fridge->{additions}};
             $one = int($one / 100);
-            my $status = get_status();
-            my @time = localtime(); $time[2] = 0 if $time[2] == 24;
+            my $status = get_status;
+            my @time = localtime; $time[2] = 0 if $time[2] == 24;
             my %methods = (
                 1 => $one,
                 h => $time[2] * 3,
