@@ -15,6 +15,7 @@ RUN \
         zlib \
         zlib-dev ;\
     cpanm -in --no-man-pages --curl --no-wget --no-lwp \
+        CGI::Deurl::XS \
         Class::XSAccessor \
         Dancer2 \
         Dancer2::Serializer::JSON \
@@ -27,7 +28,8 @@ RUN \
         LWP::UserAgent \
         Mo \
         Mo::default \
-        Mo::xs ;\
+        Mo::xs \
+        URL::Encode::Xs ;\
     apk del \
         curl \
         gcc \

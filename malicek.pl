@@ -220,7 +220,8 @@ sub login {
     my $ua = LWP::UserAgent->new(
         cookie_jar => {},
         agent => $AGENT,
-        keep_alive => 1
+        keep_alive => 1,
+        max_redirect => 0,
     );
     my $r = $ua->post(
         "${alik}/prihlasit",
@@ -232,7 +233,7 @@ sub login {
         ],
     );
     if ($r->is_redirect()) {
-        return $ua->cookie_jar();
+        return $ua;
     } else {
         return undef;
     }
@@ -247,7 +248,9 @@ sub logout {
 }
 
 sub reconcile {
-    if ($_[0] =~ /<h3>Přihlášení<\/h3>/) {
+    if ($_[0] =~ /
+        <a\shref="\/prihlasit[^"]*"\sclass="[^"]+">Přihlásit<\/a>
+        /sx) {
         logout();
         return 0;
     }
@@ -255,18 +258,16 @@ sub reconcile {
 }
 
 sub load_cookies {
-    my $cj = session('cookies')
+    return session('cookies')
         ? HTTP::Cookies->new(
             file => session('cookies'),
             autosave => 0,
         )
         : HTTP::Cookies->new();
-    return $cj;
 }
 
 sub save_cookies {
-    my $cj = shift;
-    $cj->save(session('cookies'));
+    session('ua')->cookie_jar->save(session('cookies'));
 }
 
 sub sanitize {
@@ -287,9 +288,8 @@ sub parse_status {
 }
 
 sub parse_rooms {
-    my $data = $_[0];
     my @rooms = ();
-    while ($data =~ /
+    while ($_[0] =~ /
         <li>\s+<div\sclass="klubovna-stul(?>\sklubovna-zamek\sklubovna-zamek-
         (?<lock>cerveny|zeleny|modry|zluty))?">\s+
         (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev">
@@ -401,14 +401,13 @@ sub parse_chat {
         }
     }
     while ($_[0] =~ /
-        <option\svalue="(?<id>\d+)">(?<nick>.+?)<\/option>
+        <option\svalue="(?<id>\d+)">(?<name>.+?)<\/option>
         /sgx) {
         next if $+{id} == 0;
-        my $user = Malicek::User->new(
-            name => $+{nick},
+        $users{$+{name}} = Malicek::User->new(
+            name => $+{name},
             id => $+{id},
         );
-        $users{$user->name} = $user;
     }
     while ($_[0] =~ /
         (<span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)"><\/span>)?
@@ -553,18 +552,33 @@ sub parse_settings {
 }
 
 sub get_status {
-    my $ua = LWP::UserAgent->new(
-        cookie_jar => load_cookies(),
-        agent => $AGENT,
-    );
-    my $r = $ua->get(
+    my $r = session('ua')->get(
         "${alik}/-/online"
     );
     redirect('/')
         unless $r->decoded_content();
-    save_cookies($ua->cookie_jar());
     return parse_status(sanitize($r->decoded_content()));
 }
+
+hook before => sub {
+    if (session('cookies')) {
+        session ua => LWP::UserAgent->new(
+            agent => $AGENT,
+            cookie_jar => load_cookies(),
+            keep_alive => 1,
+            max_redirect => 0,
+        )
+            unless session('ua');
+    } else {
+        forward '/'
+            unless request->path =~ /^\/(?>login)?$/;
+    }
+};
+
+hook after => sub {
+    save_cookies()
+        if session('cookies');
+};
 
 get '/' => sub {
     my %selfid = (
@@ -591,10 +605,11 @@ post '/login' => sub {
         body_parameters->get('user'),
         body_parameters->get('pass'),
     );
-    my $cj = login($user, $pass);
-    if ($cj) {
+    my $ua = login($user, $pass);
+    if ($ua) {
         session cookies => (tmpnam())[1];
-        save_cookies($cj);
+        session ua => $ua;
+        save_cookies();
     } else {
         logout();
     }
@@ -602,11 +617,7 @@ post '/login' => sub {
 };
 
 get '/logout' => sub {
-    my $ua = LWP::UserAgent->new(
-        cookie_jar => load_cookies(),
-         agent => $AGENT,
-     );
-    $ua->get(
+    session('ua')->get(
         "$alik/odhlasit",
     );
     logout();
@@ -614,53 +625,36 @@ get '/logout' => sub {
 };
 
 get '/status' => sub {
-    redirect('/')
-        unless session('cookies');
     return get_status();
 };
 
 get '/rooms' => sub {
-    redirect('/')
-        unless session('cookies');
-    my $ua = LWP::UserAgent->new(
-        cookie_jar => load_cookies(),
-        agent => $AGENT,
-    );
-    my $r = $ua->get(
+    my $r = session('ua')->get(
         "${alik}/k",
     );
     redirect('/')
         unless reconcile($r->decoded_content());
-    save_cookies($ua->cookie_jar());
     return parse_rooms(sanitize($r->decoded_content()));
 };
 
 # TODO: Figure out how to determine we were kicked out for
 # inactivity without autorejoining the room.
 get '/rooms/:id' => sub {
-    redirect('/')
-        unless session('cookies');
-    my $ua = LWP::UserAgent->new(
-        cookie_jar => load_cookies(),
-        agent => $AGENT,
-        max_redirect => 0,
-    );
     my ($r, $f);
     if (query_parameters->get('query')
         && query_parameters->get('query') eq 'settings') {
         $f = \&parse_settings;
-        $r = $ua->get(
+        $r = session('ua')->get(
             "${alik}/k/" . route_parameters->get('id') . '/nastaveni',
         );
     } else {
         $f = \&parse_chat;
-        $r = $ua->get(
+        $r = session('ua')->get(
             "${alik}/k/" . route_parameters->get('id'),
         );
     }
     redirect('/')
         unless reconcile($r->decoded_content());
-    save_cookies($ua->cookie_jar());
     if ($r->code == 302) {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
             status(403);
@@ -668,7 +662,7 @@ get '/rooms/:id' => sub {
                 error => int($+{err})
             };
         } elsif ($r->header('Location') eq '/k/') {
-            $ua->get(
+            session('ua')->get(
                 "${alik}/k/" . route_parameters->get('id') . '/odejit',
                 Referer => "${alik}/k/" . route_parameters->get('id'),
             );
@@ -679,10 +673,9 @@ get '/rooms/:id' => sub {
                     error => 501
                 };
             } else {
-                $r = $ua->get(
+                $r = session('ua')->get(
                     "${alik}/k/" . route_parameters->get('id'),
                 );
-                save_cookies($ua->cookie_jar());
             }
         }
     }
@@ -690,21 +683,15 @@ get '/rooms/:id' => sub {
 };
 
 post '/rooms/:id' => sub {
-    redirect('/')
-        unless session('cookies');
     my $action = body_parameters->get('action');
-    my $ua = LWP::UserAgent->new(
-        cookie_jar => load_cookies(),
-        agent => $AGENT,
-    );
     if ($action eq 'leave') {
-        $ua->get(
+        session('ua')->get(
             "${alik}/k/" . route_parameters->get('id') . '/odejit',
             Referer => "${alik}/k/" . route_parameters->get('id'),
         );
         redirect('/rooms');
     } elsif ($action eq 'post') {
-        $ua->post(
+        session('ua')->post(
             "${alik}/k/" . route_parameters->get('id'),
             {
                 text => body_parameters->get('message'),
@@ -730,14 +717,9 @@ get '/app/:file?' => sub {
 sub game_lednicka {
     my $r = $_[0] // undef;
     unless ($r) {
-        my $ua = LWP::UserAgent->new(
-            cookie_jar => load_cookies(),
-            agent => $AGENT,
-        );
-        $r = $ua->get(
+        $r = session('ua')->get(
             "${alik}/-/lednicka",
         );
-        save_cookies($ua->cookie_jar());
     }
     my $page = sanitize($r->decoded_content());
     if ($page =~ /Nejsi\spřihlášen/sx) {
@@ -773,8 +755,6 @@ sub game_lednicka {
 }
 
 get '/games/:game' => sub {
-    redirect('/')
-        unless session('cookies');
     if (route_parameters->get('game') eq 'lednicka') {
         return game_lednicka();
     }
@@ -783,13 +763,7 @@ get '/games/:game' => sub {
 };
 
 post '/games/:game' => sub {
-    redirect('/')
-        unless session('cookies');
     if (route_parameters->get('game') eq 'lednicka') {
-        my $ua = LWP::UserAgent->new(
-            cookie_jar => load_cookies(),
-            agent => request->user_agent(),
-        );
         my $method;
         if (query_parameters->get('method')) {
             $method = query_parameters->get('method');
@@ -822,7 +796,7 @@ post '/games/:game' => sub {
             $method = (sort { $methods{$a} <=> $methods{$b} } keys %methods)[-1];
         }
         return game_lednicka(
-            $ua->post(
+            session('ua')->post(
                 "${alik}/-/lednicka",
                 [
                     pricti => $method,
