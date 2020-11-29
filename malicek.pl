@@ -83,7 +83,7 @@ my $alik = 'https://www.alik.cz';
             link => $self->link,
             age => $self->age,
             sex => $self->sex,
-            avatar => 'https://' . $self->avatar,
+            avatar => $self->avatar ? 'https://' . $self->avatar : undef,
             admin => $self->admin,
             since => $self->since,
             last => $self->last,
@@ -321,7 +321,7 @@ sub parse_rooms {
             }
         }
         my $people = $+{people};
-        while ($people =~ /
+        while ($people && $people =~ /
             <a\shref="\/u\/(?<link>[^"]+)"\sclass="sublink
             (?>\sklubovna-(?<sex>kluk|holka))?">
             (?><img\ssrc="\/\/(?<avatar>[^"]+)">)?<u>
@@ -509,7 +509,7 @@ sub parse_chat {
                 <strong>(?<nick>[^<]+)<\/strong>
                 (\s⇨\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
                 :\s(?<msg>.+?)<\/font>
-                /sgx;
+                /sx;
             my $private = $+{private};
             $msg->color($+{color})
                 if $+{color};
@@ -532,14 +532,25 @@ sub parse_chat {
 
 sub parse_settings {
     $_[0] =~ /
-        \sname="system"(?<system>\schecked)?
-        .*name="barvy"(?<colors>\schecked)?
-        .*name="cas"(?<time>\schecked)?
-        .*name="ikony"(?<avatars>\schecked)?
-        .*value="(?<refresh>\d+)"\sselected
-        .*name="highlight"(?<highlight>\schecked)?
-        .*name="barva"\svalue="(?<color>\#[a-fA-F0-9]{6})"
-         /sgx;
+        <label><input\stype="checkbox"\svalue="1"\sname="system"
+        (?<system>\schecked)?>[^<]+<\/label>
+        <label><input\stype="checkbox"\svalue="1"\sname="barvy"
+        (?<colors>\schecked)?>[^<]+<\/label>
+        <label><input\stype="checkbox"\svalue="1"\sname="cas"
+        (?<time>\schecked)?>[^<]+<\/label>
+        <label><input\stype="checkbox"\svalue="1"\sname="ikony"
+        (?<avatars>\schecked)?>[^<]+<\/label>
+        <\/div><div\sclass="half-r">
+        <label>[^<]+<select\sname="obnovit">
+        (?><option\svalue="(?:\d+"|(?<refresh>\d+)"\sselected)>
+        [^<]+<\/option>)+<\/select><\/label>
+        <label\sstyle="display:\snone">[^<]+<select\sname="radku">
+        (?><option\svalue="\d+">[^<]+<\/option>)+<\/select><\/label>
+        <label><input\stype="checkbox"\svalue="1"\sname="highlight"
+        (?<highlight>\schecked)?>[^<]+<\/label>
+        <label>[^<]+<input\stype="text"\sname="barva"\svalue="
+        (?<color>[^"]+)"\ssize="6"\smaxlength="7">
+        /sx;
     return Malicek::Settings->new(
         avatars => $+{avatars},
         colors => $+{colors},
