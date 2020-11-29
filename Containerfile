@@ -2,7 +2,7 @@ FROM alpine:edge
 RUN \
     apk update ;\
     apk upgrade ;\
-    apk add \
+    apk add --no-cache \
         curl \
         gcc \
         make \
@@ -10,8 +10,8 @@ RUN \
         openssl \
         openssl-dev \
         perl \
-        perl-dev \
         perl-app-cpanminus \
+        perl-dev \
         zlib \
         zlib-dev ;\
     cpanm -in --no-man-pages --curl --no-wget --no-lwp \
@@ -23,8 +23,8 @@ RUN \
         File::Temp \
         HTML::Entities \
         HTTP::Cookies \
-        LWP::UserAgent \
         LWP::Protocol::https \
+        LWP::UserAgent \
         Mo \
         Mo::default \
         Mo::xs ;\
@@ -34,9 +34,10 @@ RUN \
         make \
         musl-dev \
         openssl-dev \
-        perl-dev \
         perl-app-cpanminus \
+        perl-dev \
         zlib-dev ;\
+    apk cache clean || : ;\
     mkdir /malicek
 ENV TZ=Europe/Prague
 EXPOSE 3000
