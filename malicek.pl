@@ -14,7 +14,7 @@
 #  * Pošta (unsupported)
 #  * Alíkoviny (unsupported)
 #  * Vtipy (unsupported)
-#  * Hry (partially supported)
+#  * Hry (Lednička supported)
 #
 # See public/LICENSE.txt for license and authors.
 
@@ -37,13 +37,11 @@ use LWP::UserAgent;
 set serializer => 'JSON';
 set session => 'Simple';
 
-our @mo = qw/default xs/;
-
 my $alik = 'https://www.alik.cz';
 
 {
     package Malicek::Room;
-    use Mo @mo;
+    use Mo qw/default xs/;
     has 'name';
     has 'id';
     has 'topic';
@@ -67,7 +65,7 @@ my $alik = 'https://www.alik.cz';
 
 {
     package Malicek::User;
-    use Mo @mo;
+    use Mo qw/default xs/;
     has 'name';
     has 'id';
     has 'link';
@@ -93,7 +91,7 @@ my $alik = 'https://www.alik.cz';
 
 {
     package Malicek::Profile;
-    use Mo @mo;
+    use Mo qw/default xs/;
     extends 'Malicek::User';
     has 'avatar';
     has 'realname';
@@ -112,7 +110,7 @@ my $alik = 'https://www.alik.cz';
 
 {
     package Malicek::Message;
-    use Mo @mo;
+    use Mo qw/default xs/;
     has 'type';
     has 'event';
     has 'from';
@@ -125,13 +123,53 @@ my $alik = 'https://www.alik.cz';
         my $self = shift;
         return {
             type => $self->type,
-            event => $self->event,
+            event => $self->event ? $self->event->dump : undef,
             from => $self->from,
             to => $self->to,
             message => $self->message,
             time => $self->time,
             avatar => $self->avatar,
             color => $self->color,
+        };
+    }
+}
+
+{
+    package Malicek::Event;
+    use Mo qw/default xs/;
+    has 'type';
+    has 'source';
+    has 'target';
+    sub dump {
+        my $self = shift;
+        return {
+            type => $self->type,
+            source => $self->source,
+            target => $self->target,
+        }
+    }
+}
+
+{
+    package Malicek::Settings;
+    use Mo qw/default xs/;
+    has 'avatars';
+    has 'colors';
+    has 'highlight';
+    has 'system';
+    has 'time';
+    has 'color';
+    has 'refresh';
+    sub dump {
+        my $self = shift;
+        return {
+            avatars => $self->avatars ? \1 : \0,
+            colors => $self->colors ? \1 : \0,
+            highlight => $self->highlight ? \1 : \0,
+            system => $self->system ? \1 : \0,
+            time => $self->time ? \1 : \0,
+            color => $self->color,
+            refresh => int($self->refresh),
         };
     }
 }
@@ -200,11 +238,11 @@ sub parse_status {
         "(?<mail>\d+)",\s
         "(?<people>\d+)!?",\s
         "(?<cash>[0-9\s]+)"\);$/sx;
-    return (
+    return {
         mail => int($+{mail}),
         people => int($+{people}),
         cash => int($+{cash} =~ s/\s//gr),
-    );
+    };
 }
 
 sub parse_rooms {
@@ -220,8 +258,10 @@ sub parse_rooms {
         /sgx) {
         my $room = Malicek::Room->new();
         $room->name($+{name});
-        $room->id($+{id});
-        $room->topic($+{topic} // undef);
+        $room->id($+{id})
+            if defined($+{id});
+        $room->topic($+{topic})
+            if defined($+{topic});
         if (defined($+{lock})) {
             if ($+{lock} eq 'zluty') {
                 $room->allowed('none');
@@ -246,10 +286,11 @@ sub parse_rooms {
                     <u><span(?<admin>.+?)?>(?<user>.+?)<\/span><\/u>
                     (<span\sclass="klubovna-info">(?<age>\d+))?
                     /sgx;
-                my $user = Malicek::User->new();
-                $user->link($+{link});
-                $user->name($+{user});
-                if ($+{sex}) {
+                my $user = Malicek::User->new(
+                    name => $+{user},
+                    link => $+{link},
+                );
+                if (defined($+{sex})) {
                     if ($+{sex} eq ' klubovna-kluk') {
                         $user->sex('boy');
                     } else {
@@ -270,11 +311,11 @@ sub parse_rooms {
         }
         push @rooms, $room->dump();
     }
-    return sort { fc($a->{name}) cmp fc($b->{name}) } @rooms;
+    return [ sort { fc($a->{name}) cmp fc($b->{name}) } @rooms ];
 }
 
 sub parse_chat {
-    my ($name, $topic, $creator, $allowed, %users, @messages);
+    my (%users, @messages);
     $_[0] =~ /
         <!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.*
         Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
@@ -282,21 +323,22 @@ sub parse_chat {
         <\/small><\/h2><p>
         Stůl\szaložil\/a:\s<a\shref="\/u\/[^"]+">(?<creator>[^<]+)<\/a>
         /sx;
-    $name = $+{name};
-    $topic = $+{topic};
-    $creator = $+{creator};
-    $allowed = 'all';
+    my $room = Malicek::Room->new(
+        name => $+{name},
+        topic => $+{topic},
+        creator => $+{creator},
+    );
     if ($+{lock}) {
         if (index($+{lock}, 'lock.png') != -1) {
-            $allowed = 'none';
+            $room->allowed('none');
         } elsif (index($+{lock}, 'lockh.png') != -1) {
-            $allowed = 'boys';
+            $room->allowed('boys');
         } elsif (index($+{lock}, 'lockk.png') != -1) {
-            $allowed = 'girls';
+            $room->allowed('girls');
         } elsif (index($+{lock}, 'locknf.png') != -1) {
-            $allowed = 'friends';
+            $room->allowed('friends');
         } else {
-            $allowed = 'unknown';
+            $room->allowed('unknown');
         }
     }
     while ($_[0] =~ /
@@ -341,6 +383,7 @@ sub parse_chat {
             $users{$nick}->admin([ @admin ]);
         }
     }
+    $room->users([ values %users ]);
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
@@ -350,41 +393,68 @@ sub parse_chat {
         /sgx) {
         my $msg = Malicek::Message->new();
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
-        if ($+{time}) {
-            $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time});
-        }
+        $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time})
+            if $+{time};
         $msg->avatar('https://' . $+{avatar})
             if $+{avatar};
         if ($+{type} eq 'system') {
             $msg->message($+{message} =~ s/<[^>]+>|\s*$//sgxr);
             if ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
-                $msg->event({type => 'join', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'join',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) (?>vstala? od|přeš(?>el|la) k jinému) stolu\.$/) {
-                $msg->event({type => 'part', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'part',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Alík odebral kamarád(?>ovi|ce) (?<nick>.+) místo u stolu z důvodu neaktivity.$/) {
-                $msg->event({type => 'part', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'part',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) zamkla? stůl/) {
-                $msg->event({type => 'lock', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'lock',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) odemkla? stůl/) {
-                $msg->event({type => 'unlock', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'unlock',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) vyčistila? stůl\.$/) {
-                $msg->event({type => 'clear', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'clear',
+                    source => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
-                $msg->event({type => 'kick', source => undef, target => $+{nick}});
+                $msg->event(Malicek::Event->new(
+                    type => 'kick',
+                    target => $+{nick},
+                ));
             } elsif ($msg->message() =~ /^Kamarád(?>ka)? (?<nick>.+) předala? správce\.$/) {
-                $msg->event({type => 'oper', source => $+{nick}, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'oper',
+                    source => $+{nick},
+                ));
             } else {
-                $msg->event({type => 'unknown', source => undef, target => undef});
+                $msg->event(Malicek::Event->new(
+                    type => 'unknown',
+                ));
             }
         } else {
-            $+{message} =~ /(?<private><span\sclass="septani"><\/span>)?
-                            <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
-                            <strong>(?<nick>[^<]+)<\/strong>
-                            (\s⇨\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
-                            :\s(?<msg>.+?)<\/font>
-                           /sgx;
+            $+{message} =~ /
+                (?<private><span\sclass="septani"><\/span>)?
+                <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
+                <strong>(?<nick>[^<]+)<\/strong>
+                (\s⇨\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
+                :\s(?<msg>.+?)<\/font>
+                /sgx;
             my $private = $+{private};
-            $msg->color($+{color});
+            $msg->color($+{color})
+                if $+{color};
             $msg->from($+{nick});
             $msg->to($+{to})
                 if $private;
@@ -398,14 +468,8 @@ sub parse_chat {
         }
         push @messages, $msg if $msg;
     }
-    return (
-        name => $name,
-        topic => $topic,
-        creator => $creator,
-        allowed => $allowed,
-        users => [ map { $users{$_}->dump } keys %users ],
-        messages => [ map { $_->dump } @messages ],
-    );
+    $room->messages(\@messages);
+    return $room->dump;
 }
 
 sub parse_settings {
@@ -418,15 +482,15 @@ sub parse_settings {
         .*name="highlight"(?<highlight>\schecked)?
         .*name="barva"\svalue="(?<color>\#[a-fA-F0-9]{6})"
          /sgx;
-    return (
-        system => $+{system} ? \1 : \0,
-        colors => $+{colors} ? \1 : \0,
-        time => $+{time} ? \1 : \0,
-        avatars => $+{avatars} ? \1 : \0,
-        refresh => int($+{refresh}),
-        highlight => $+{highlight} ? \1 : \0,
+    return Malicek::Settings->new(
+        avatars => $+{avatars},
+        colors => $+{colors},
+        highlight => $+{highlight},
+        system => $+{system},
+        time => $+{time},
         color => $+{color},
-    );
+        refresh => int($+{refresh}),
+    )->dump;
 }
 
 sub get_status {
@@ -440,7 +504,7 @@ sub get_status {
     redirect('/')
         unless $r->decoded_content();
     save_cookies($ua->cookie_jar());
-    return { parse_status(sanitize($r->decoded_content())) };
+    return parse_status(sanitize($r->decoded_content()));
 }
 
 get '/' => sub {
@@ -483,7 +547,9 @@ get '/logout' => sub {
         cookie_jar => load_cookies(),
          agent => $AGENT,
      );
-    $ua->get("$alik/odhlasit");
+    $ua->get(
+        "$alik/odhlasit",
+    );
     logout();
     redirect('/');
 };
@@ -507,7 +573,7 @@ get '/rooms' => sub {
     redirect('/')
         unless reconcile($r->decoded_content());
     save_cookies($ua->cookie_jar());
-    return [ parse_rooms(sanitize($r->decoded_content())) ];
+    return parse_rooms(sanitize($r->decoded_content()));
 };
 
 # TODO: Figure out how to determine we were kicked out for
@@ -561,7 +627,7 @@ get '/rooms/:id' => sub {
             }
         }
     }
-    return { &{$f}(sanitize($r->decoded_content())) };
+    return &{$f}(sanitize($r->decoded_content()));
 };
 
 post '/rooms/:id' => sub {
@@ -640,8 +706,8 @@ sub game_lednicka {
             amount => int($amount),
         };
     }
-    $fridge{additions} = [ @additions ];
-    return { %fridge };
+    $fridge{additions} = \@additions;
+    return \%fridge;
 }
 
 get '/games/:game' => sub {
