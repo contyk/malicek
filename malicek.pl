@@ -73,6 +73,7 @@ my $alik = 'https://www.alik.cz';
     has 'sex' => 'unisex';
     has 'avatar';
     has 'admin' => [];
+    has 'online' => 1;
     has 'since';
     has 'last';
     sub dump {
@@ -85,6 +86,7 @@ my $alik = 'https://www.alik.cz';
             sex => $self->sex,
             avatar => $self->avatar ? 'https://' . $self->avatar : undef,
             admin => $self->admin,
+            online => $self->online ? \1 : \0,
             since => $self->since,
             last => $self->last,
         }
@@ -97,16 +99,23 @@ my $alik = 'https://www.alik.cz';
     extends 'Malicek::User';
     has 'realname';
     has 'home';
-    has 'hobbies';
+    has 'hobbies' => [];
     has 'rank';
     has 'registered';
+    has 'seen';
+    has 'blocked' => 0;
+    has 'gone' => 0;
     has 'quest';
     has 'likes';
     has 'dislikes';
     has 'pictures' => [];
     has 'style';
     has 'counter';
-    has 'visitors';
+    has 'visitors' => [];
+    # TODO: Two friends lists
+    # TODO: Blog posts
+    # TODO: Created boards, faved boards
+    # TODO: Faved games
     sub dump {
         my $self = shift;
         return {};
