@@ -611,7 +611,7 @@ hook after => sub {
 };
 
 get '/' => sub {
-    send_file('index.html');
+    send_file('malicek.html');
 };
 
 get '/malicek' => sub {
