@@ -79,9 +79,9 @@ my $alik = 'https://www.alik.cz';
         my $self = shift;
         return {
             name => $self->name,
-            id => $self->id,
+            id => $self->id ? int($self->id) : undef,
             link => $self->link,
-            age => $self->age,
+            age => $self->age ? int($self->age) : undef,
             sex => $self->sex,
             avatar => $self->avatar ? 'https://' . $self->avatar : undef,
             admin => $self->admin,
@@ -132,9 +132,9 @@ my $alik = 'https://www.alik.cz';
             from => $self->from,
             to => $self->to,
             message => $self->message,
-            time => $self->time,
-            avatar => $self->avatar,
             color => $self->color,
+            time => $self->time,
+            avatar => $self->avatar ? 'https://' . $self->avatar : undef,
         };
     }
 }
@@ -174,7 +174,7 @@ my $alik = 'https://www.alik.cz';
             system => $self->system ? \1 : \0,
             time => $self->time ? \1 : \0,
             color => $self->color,
-            refresh => int($self->refresh),
+            refresh => $self->refresh ? int($self->refresh) : undef,
         };
     }
 }
@@ -292,7 +292,7 @@ sub parse_rooms {
     while ($_[0] =~ /
         <li>\s+<div\sclass="klubovna-stul(?>\sklubovna-zamek\sklubovna-zamek-
         (?<lock>cerveny|zeleny|modry|zluty))?">\s+
-        (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev">
+        (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev"[^>]*>
         |<i\sclass="stul-nazev">)<u>(?<name>[^<]+)<\/u>
         (?>\s+<small>(?>–\s(?<topic>[^<]+)|[^<]*)<\/small>)?<\/[ai]>
         (?><small\sclass=fr>\(založila?\s<a\shref="\/u\/[^"]+">
@@ -376,11 +376,12 @@ sub parse_rooms {
 sub parse_chat {
     my (%users, @messages);
     $_[0] =~ /
-        <!--reload\("zamceno"\)-->(?<lock>.*)<!--\/reload-->.*
-        Stůl:\s(?<name>[^<]+)<small\sid="bleskopopisek">
-        <!--reload\("bleskopopisek"\)-->(?<topic>[^<]*)<!--\/reload-->
-        <\/small><\/h2><p>
-        Stůl\szaložil\/a:\s<a\shref="\/u\/[^"]+">(?<creator>[^<]+)<\/a>
+        <h2\s[^>]+><span\sid="zamceno"><!--reload\("zamceno"\)-->
+        (?><img\salt="[^"]+"\ssrc="[^"]+?(?<lock>lock[^.]*)\.png">)?
+        <!--\/reload--><\/span>\s*Stůl:\s(?<name>[^<]+)
+        <small\sid="bleskopopisek"><!--reload\("bleskopopisek"\)-->
+        (?<topic>[^<]*)<!--\/reload--><\/small><\/h2><p>
+        Stůl\szaložil\/a:\s<a\s[^>]+>(?<creator>[^<]+)<\/a>
         /sx;
     my $room = Malicek::Room->new(
         name => $+{name},
@@ -388,73 +389,65 @@ sub parse_chat {
         creator => $+{creator},
     );
     if ($+{lock}) {
-        if (index($+{lock}, 'lock.png') != -1) {
+        if ($+{lock} eq 'lock') {
             $room->allowed('none');
-        } elsif (index($+{lock}, 'lockh.png') != -1) {
+        } elsif ($+{lock} eq 'lockh.png') {
             $room->allowed('boys');
-        } elsif (index($+{lock}, 'lockk.png') != -1) {
+        } elsif ($+{lock} eq 'lockk.png') {
             $room->allowed('girls');
-        } elsif (index($+{lock}, 'locknf.png') != -1) {
+        } elsif ($+{lock} eq 'locknf.png') {
             $room->allowed('friends');
         } else {
             $room->allowed('unknown');
         }
     }
     while ($_[0] =~ /
-        <option\svalue="(?<id>\d+)">(?<name>.+?)<\/option>
+        <li>(?><span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)">
+        <\/span>)?<h4\sclass="(?<sex>boy|girl|unisex)">(?<nick>[^<]+)<\/h4>
+        <div\sclass="user-status">(?><p>Je\smi:\s<b>(?<age>\d+)\s[^<]+<\/b>
+        <\/p>)?<ul><li><a\shref="\/u\/(?<link>[^"]+)"\sclass="vizitka">Vizitka
+        <\/a><\/li>(?><li><a\s[^.]+\.value\s=\s'(?<id>\d+)'[^>]+>[^<]+<\/a>
+        <\/li>)?<\/ul><p>\s*U\sstolu\sjsem:\s+<b\s[^>]+>od\s+(?<since>[^<]+)
+        <\/b><br>\s*Poslední\szpráva:\s+<b>(?<last>[^<]+)<\/b><\/p><\/div><\/li>
         /sgx) {
-        next if $+{id} == 0;
-        $users{$+{name}} = Malicek::User->new(
-            name => $+{name},
-            id => $+{id},
+        my $user = Malicek::User->new(
+            name => $+{nick},
+            id => $+{id} // undef,
+            link => $+{link},
+            age => $+{age} // undef,
+            sex => $+{sex},
+            since => $+{since},
+            last => $+{last},
         );
-    }
-    while ($_[0] =~ /
-        (<span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)"><\/span>)?
-        <h4\sclass="(?<sex>boy|girl|unisex)">
-        (?<nick>[^<]+)<\/h4>
-        <div\sclass="user-status">
-        (<p>Je\smi:\s<b>(?<age>\d+)\s+[^<]+<\/b><\/p>)?
-        .+?href="\/u\/(?<link>[^"]+)"\sclass="vizitka"
-        .+?od\s(?<since>[^<]+)<\/b>.+?
-        Poslední\szpráva:\s<b>(?<last>[^<]+)<\/b>
-        /sgx) {
-        $users{$+{nick}} //= Malicek::User->new(name => $+{nick});
-        $users{$+{nick}}->link($+{link});
-        $users{$+{nick}}->sex($+{sex});
-        $users{$+{nick}}->since($+{since});
-        $users{$+{nick}}->last($+{last});
-        $users{$+{nick}}->age($+{age}) if $+{age};
-        if ($+{admin}) {
-            my ($admin, $nick, @admin) = ($+{admin}, $+{nick});
+        if (defined($+{admin})) {
+            my $admin = $+{admin};
             if ($admin eq 'chef') {
-                push @admin, 'chat';
+                push $user->admin->@*, 'chat';
             } elsif ($admin =~ /^super/) {
-                push @admin, 'rooms' if $admin =~ /^super.*k.*$/;
-                push @admin, 'boards' if $admin =~ /^super.*n.*$/;
-                push @admin, 'blog' if $admin =~ /^super.*r.*$/;
+                push $user->admin->@*, 'rooms'
+                    if $admin =~ /^super.*k.*$/;
+                push $user->admin->@*, 'boards'
+                    if $admin =~ /^super.*n.*$/;
+                push $user->admin->@*, 'blog'
+                    if $admin =~ /^super.*r.*$/;
             } elsif ($admin =~ /^(?>master|guru)$/) {
-                push @admin, $admin;
-            } else {
-                @admin = ();
+                push $user->admin->@*, $admin;
             }
-            $users{$nick}->admin([ @admin ]);
         }
+        push $room->users->@*, $user;
     }
-    $room->users([ values %users ]);
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
         (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?
-        \s+
-        (?<message>.+?)<\/p>
+        \s+(?<message>.+?)<\/p>
         /sgx) {
         my $msg = Malicek::Message->new;
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
         $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time})
-            if $+{time};
-        $msg->avatar('https://' . $+{avatar})
-            if $+{avatar};
+            if defined($+{time});
+        $msg->avatar($+{avatar})
+            if defined($+{avatar});
         if ($+{type} eq 'system') {
             $msg->message($+{message} =~ s/<[^>]+>|\s+$//sgxr);
             if ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
@@ -504,27 +497,26 @@ sub parse_chat {
             }
         } else {
             $+{message} =~ /
-                (?<private><span\sclass="septani"><\/span>)?
                 <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
                 <strong>(?<nick>[^<]+)<\/strong>
-                (\s⇨\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
+                (?>\s(?<private>⇨)\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
                 :\s(?<msg>.+?)<\/font>
                 /sx;
-            my $private = $+{private};
+            next
+                if $+{private} && ! $+{to};
             $msg->color($+{color})
                 if $+{color};
             $msg->from($+{nick});
             $msg->to($+{to})
-                if $private;
+                if $+{private};
             my $raw = $+{msg};
             $raw =~ s/<img\sclass="smiley"\ssrc="[^"]+"\salt="([^"]+)">?/[$1]/sgx;
             # Workaround for broken highlights in links
             $raw =~ s/<\/?em>//sgx;
             $raw =~ s/<[^>]*>//sgx;
             $msg->message(decode_entities($raw));
-            undef $msg if $private && ! $msg->to;
         }
-        push @messages, $msg if $msg;
+        push @messages, $msg;
     }
     $room->messages(\@messages);
     return $room->dump;
