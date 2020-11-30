@@ -235,7 +235,7 @@ sub login {
     if ($r->is_redirect) {
         return $ua;
     } else {
-        return undef;
+        return false;
     }
 }
 
@@ -247,14 +247,30 @@ sub logout {
     }
 }
 
+sub badrequest {
+    status(501);
+    halt({
+        status => 400,
+        reason => 'Bad request',
+    });
+}
+
+sub unauthenticated {
+    status(401);
+    halt({
+        status => 401,
+        reason => 'Unauthorized',
+    });
+}
+
 sub reconcile {
     if ($_[0] =~ /
         <a\shref="\/prihlasit[^"]*"\sclass="[^"]+">Přihlásit<\/a>
         /sx) {
         logout;
-        return 0;
+        unauthenticated;
     }
-    return 1;
+    return true;
 }
 
 sub load_cookies {
@@ -283,20 +299,20 @@ sub parse_status {
     return {
         mail => int($+{mail}),
         people => int($+{people}),
-        cash => int($+{cash} =~ s/\s+//gr),
+        cash => int($+{cash} =~ s/\s//gr),
     };
 }
 
 sub parse_rooms {
     my @rooms = ();
     while ($_[0] =~ /
-        <li>\s+<div\sclass="klubovna-stul(?>\sklubovna-zamek\sklubovna-zamek-
-        (?<lock>cerveny|zeleny|modry|zluty))?">\s+
+        <li>\s<div\sclass="klubovna-stul(?>\sklubovna-zamek\sklubovna-zamek-
+        (?<lock>cerveny|zeleny|modry|zluty))?">\s
         (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev"[^>]*>
         |<i\sclass="stul-nazev">)<u>(?<name>[^<]+)<\/u>
-        (?>\s+<small>(?>–\s(?<topic>[^<]+)|[^<]*)<\/small>)?<\/[ai]>
+        (?>\s<small>(?>–\s(?<topic>[^<]+)|[^<]*)<\/small>)?<\/[ai]>
         (?><small\sclass=fr>\(založila?\s<a\shref="\/u\/[^"]+">
-        <span[^>]*>(?<creator>[^<]+)<\/span><\/a>\)<\/small>)?\s+<\/div>\s+
+        <span[^>]*>(?<creator>[^<]+)<\/span><\/a>\)<\/small>)?\s<\/div>\s
         (?><div\sclass="klubovna-lidi(?>\s[^"]+)?"\sdata-pocet="\d+">
         (?<people>.+?)<\/div>)?
         /sgx) {
@@ -378,7 +394,7 @@ sub parse_chat {
     $_[0] =~ /
         <h2\s[^>]+><span\sid="zamceno"><!--reload\("zamceno"\)-->
         (?><img\salt="[^"]+"\ssrc="[^"]+?(?<lock>lock[^.]*)\.png">)?
-        <!--\/reload--><\/span>\s*Stůl:\s(?<name>[^<]+)
+        <!--\/reload--><\/span>\sStůl:\s(?<name>[^<]+)
         <small\sid="bleskopopisek"><!--reload\("bleskopopisek"\)-->
         (?<topic>[^<]*)<!--\/reload--><\/small><\/h2><p>
         Stůl\szaložil\/a:\s<a\s[^>]+>(?<creator>[^<]+)<\/a>
@@ -407,8 +423,8 @@ sub parse_chat {
         <div\sclass="user-status">(?><p>Je\smi:\s<b>(?<age>\d+)\s[^<]+<\/b>
         <\/p>)?<ul><li><a\shref="\/u\/(?<link>[^"]+)"\sclass="vizitka">Vizitka
         <\/a><\/li>(?><li><a\s[^.]+\.value\s=\s'(?<id>\d+)'[^>]+>[^<]+<\/a>
-        <\/li>)?<\/ul><p>\s*U\sstolu\sjsem:\s+<b\s[^>]+>od\s+(?<since>[^<]+)
-        <\/b><br>\s*Poslední\szpráva:\s+<b>(?<last>[^<]+)<\/b><\/p><\/div><\/li>
+        <\/li>)?<\/ul><p>\sU\sstolu\sjsem:\s<b\s[^>]+>od\s(?<since>[^<]+)
+        <\/b><br>\sPoslední\szpráva:\s<b>(?<last>[^<]+)<\/b><\/p><\/div><\/li>
         /sgx) {
         my $user = Malicek::User->new(
             name => $+{nick},
@@ -439,8 +455,7 @@ sub parse_chat {
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
-        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?
-        \s+(?<message>.+?)<\/p>
+        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?\s(?<message>.+?)<\/p>
         /sgx) {
         my $msg = Malicek::Message->new;
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
@@ -449,7 +464,7 @@ sub parse_chat {
         $msg->avatar($+{avatar})
             if defined($+{avatar});
         if ($+{type} eq 'system') {
-            $msg->message($+{message} =~ s/<[^>]+>|\s+$//sgxr);
+            $msg->message($+{message} =~ s/<[^>]+>|\s$//sgxr);
             if ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'join',
@@ -558,9 +573,10 @@ sub get_status {
     my $r = session('ua')->get(
         "${alik}/-/online"
     );
-    redirect('/malicek')
-        unless $r->decoded_content;
-    return parse_status(sanitize($r->decoded_content));
+    if ($r->decoded_content) {
+        return parse_status(sanitize($r->decoded_content));
+    }
+    unauthenticated;
 }
 
 hook before => sub {
@@ -573,14 +589,16 @@ hook before => sub {
         )
             unless session('ua');
     } else {
-        forward('/malicek')
-            unless request->path =~ /^\/(?>malicek|login)?$/;
+        if (request->path !~ /^\/(?>malicek|login)?$/) {
+            unauthenticated;
+        }
     }
 };
 
 hook after => sub {
     save_cookies
         if session('cookies');
+    response_header('Cache-Control' => 'no-store');
 };
 
 get '/' => sub {
@@ -596,13 +614,13 @@ get '/malicek' => sub {
     if (session('cookies')) {
         return {
             %selfid,
-            state => \1
+            authenticated => \1,
         };
     } else {
         status(401);
         return {
             %selfid,
-            state => \0
+            authenticated => \0,
         };
     }
 };
@@ -617,10 +635,11 @@ post '/login' => sub {
         session cookies => (tmpnam)[1];
         session ua => $ua;
         save_cookies;
+        redirect('/malicek');
     } else {
         logout;
+        unauthenticated;
     }
-    redirect('/malicek');
 };
 
 get '/logout' => sub {
@@ -643,8 +662,7 @@ get '/rooms/' => sub {
     my $r = session('ua')->get(
         "${alik}/k",
     );
-    redirect('/malicek')
-        unless reconcile($r->decoded_content);
+    reconcile($r->decoded_content);
     return parse_rooms(sanitize($r->decoded_content));
 };
 
@@ -666,46 +684,44 @@ post '/rooms/' => sub {
     }
 };
 
-# TODO: Figure out how to determine we were kicked out for
-# inactivity without autorejoining the room.
 get '/rooms/:id' => sub {
     my ($r, $f);
-    if (query_parameters->get('query')
-        && query_parameters->get('query') eq 'settings') {
-        $f = \&parse_settings;
-        $r = session('ua')->get(
-            "${alik}/k/" . route_parameters->get('id') . '/nastaveni',
-        );
+    if (query_parameters->get('query')) {
+        if (query_parameters->get('query') eq 'settings') {
+            $f = \&parse_settings;
+            $r = session('ua')->get(
+                "${alik}/k/" . route_parameters->get('id') . '/nastaveni',
+            );
+            unauthenticated
+                if $r->is_redirect;
+        } else {
+            badrequest;
+        }
     } else {
         $f = \&parse_chat;
         $r = session('ua')->get(
             "${alik}/k/" . route_parameters->get('id'),
         );
+        reconcile($r->decoded_content);
     }
-    redirect('/malicek')
-        unless reconcile($r->decoded_content);
-    if ($r->code == 302) {
+    if ($r->is_redirect) {
         if ($r->header('Location') =~ /err=(?<err>\d+)/) {
             status(403);
-            return {
-                error => int($+{err})
-            };
+            halt({
+                status => 403,
+                reason => 'Forbidden',
+                alik => int($+{err}),
+            });
         } elsif ($r->header('Location') eq '/k/') {
+            # We're already there but don't have the chat cookie
+            # Leave and rejoin
             session('ua')->get(
                 "${alik}/k/" . route_parameters->get('id') . '/odejit',
                 Referer => "${alik}/k/" . route_parameters->get('id'),
             );
-            if (query_parameters->get('query')) {
-                # How did we get here?
-                status(501);
-                return {
-                    error => 501
-                };
-            } else {
-                $r = session('ua')->get(
-                    "${alik}/k/" . route_parameters->get('id'),
-                );
-            }
+            $r = session('ua')->get(
+                "${alik}/k/" . route_parameters->get('id'),
+            );
         }
     }
     return &{$f}(sanitize($r->decoded_content));
@@ -718,8 +734,9 @@ post '/rooms/:id' => sub {
             "${alik}/k/" . route_parameters->get('id') . '/odejit',
             Referer => "${alik}/k/" . route_parameters->get('id'),
         );
-        redirect('/rooms');
+        redirect('/rooms/');
     } elsif ($action eq 'post') {
+        # Always responds to 302 L: /k/
         session('ua')->post(
             "${alik}/k/" . route_parameters->get('id'),
             {
@@ -729,8 +746,20 @@ post '/rooms/:id' => sub {
             },
         );
         redirect('/rooms/' . route_parameters->get('id'));
+    } elsif ($action eq 'operator') {
+        badrequest;
+    } elsif ($action eq 'lock') {
+        badrequest;
+    } elsif ($action eq 'unlock') {
+        badrequest;
+    } elsif ($action eq 'clear') {
+        badrequest;
+    } elsif ($action eq 'kick') {
+        badrequest;
+    } elsif ($action eq 'ban') {
+        badrequest;
     } else {
-        redirect('/rooms/' . route_parameters->get('id'));
+        badrequest;
     }
 };
 
@@ -744,15 +773,15 @@ sub game_lednicka {
     my $page = sanitize($r->decoded_content);
     if ($page =~ /Nejsi\spřihlášen/sx) {
         logout;
-        redirect('/malicek');
+        unauthenticated;
     }
     my $fridge = Malicek::Game::Lednicka->new(
         active =>
             $page !~/Je\spřičteno!/sx
             || 0,
         total =>
-            ($page =~ /<a\shref="\/-\/lednicka".+?>\s+([0-9\s]+)</sx)[0]
-            =~ s/\s+//sgr,
+            ($page =~ /<a\shref="\/-\/lednicka".+?>\s([0-9\s]+)</sx)[0]
+            =~ s/\s//sgr,
     );
     $fridge->defrost($fridge->active ? ($page !~ /onclick="alert/sx || 0) : 0);
     $fridge->defrost($page =~ /Odmrazení\sčtyřčíslí/sx ? 4 : 3)
@@ -767,7 +796,7 @@ sub game_lednicka {
             method => $+{method},
             amount => $+{amount},
         );
-        $addition->amount($addition->amount =~ s/\+|\s+//sgr);
+        $addition->amount($addition->amount =~ s/\+|\s//sgr);
         $addition->amount($addition->amount =~ s/&minus;/-/r);
         push $fridge->additions->@*, $addition;
     }
@@ -778,8 +807,7 @@ get '/games/:game' => sub {
     if (route_parameters->get('game') eq 'lednicka') {
         return game_lednicka;
     }
-    status(400);
-    return {};
+    badrequest;
 };
 
 post '/games/:game' => sub {
@@ -791,7 +819,10 @@ post '/games/:game' => sub {
             my $fridge = game_lednicka;
             unless ($fridge->{active}) {
                 status(409);
-                return {};
+                halt({
+                    status => 409,
+                    reason => 'Conflict',
+                });
             }
             my $factor = 10 ** $fridge->{defrost} if $fridge->{defrost};
             my $defrost = $fridge->{defrost}
@@ -824,8 +855,7 @@ post '/games/:game' => sub {
             ),
         );
     }
-    status(400);
-    return {};
+    badrequest;
 };
 
 start;
