@@ -464,7 +464,7 @@ sub parse_chat {
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
-        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?\s(?<message>.+?)<\/p>
+        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?(?<message>.+?)<\/p>
         /sgx) {
         my $msg = Malicek::Message->new;
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
@@ -473,7 +473,7 @@ sub parse_chat {
         $msg->avatar($+{avatar})
             if defined($+{avatar});
         if ($+{type} eq 'system') {
-            $msg->message($+{message} =~ s/<[^>]+>|\s$//sgxr);
+            $msg->message($+{message} =~ s/^\s|<[^>]+>|\s$//sgxr);
             if ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'join',
@@ -521,10 +521,10 @@ sub parse_chat {
             }
         } else {
             $+{message} =~ /
-                <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
+                ^\s<font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
                 <strong>(?<nick>[^<]+)<\/strong>
                 (?>\s(?<private>⇨)\s(?><em>)?(?<to>[^<]*)(?><\/em>)?)?
-                :\s(?<msg>.+?)<\/font>
+                :\s(?<msg>.+?)<\/font>$
                 /sx;
             next
                 if $+{private} && ! $+{to};
