@@ -257,7 +257,7 @@ sub logout {
 }
 
 sub badrequest {
-    status(501);
+    status(400);
     halt({
         status => 400,
         reason => 'Bad request',
@@ -265,6 +265,7 @@ sub badrequest {
 }
 
 sub unauthenticated {
+    logout;
     status(401);
     halt({
         status => 401,
@@ -276,7 +277,6 @@ sub reconcile {
     if ($_[0] =~ /
         <a\shref="\/prihlasit[^"]*"\sclass="[^"]+">Přihlásit<\/a>
         /sx) {
-        logout;
         unauthenticated;
     }
     return true;
@@ -644,9 +644,8 @@ post '/login' => sub {
         session cookies => (tmpnam)[1];
         session ua => $ua;
         save_cookies;
-        redirect('/malicek');
+        redirect('/malicek', 200);
     } else {
-        logout;
         unauthenticated;
     }
 };
@@ -656,7 +655,7 @@ get '/logout' => sub {
         "$alik/odhlasit",
     );
     logout;
-    redirect('/malicek');
+    redirect('/malicek', 200);
 };
 
 get '/status' => sub {
@@ -701,6 +700,8 @@ get '/rooms/:id' => sub {
             $r = session('ua')->get(
                 "${alik}/k/" . route_parameters->get('id') . '/nastaveni',
             );
+            # FIXME: We also get a redirect if we ARE authenticated but
+            # not in the requested room.
             unauthenticated
                 if $r->is_redirect;
         } else {
@@ -781,7 +782,6 @@ sub game_lednicka {
     }
     my $page = sanitize($r->decoded_content);
     if ($page =~ /Nejsi\spřihlášen/sx) {
-        logout;
         unauthenticated;
     }
     my $fridge = Malicek::Game::Lednicka->new(
