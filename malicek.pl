@@ -524,7 +524,7 @@ sub parse_chat {
                 ^(?>\s|<span\sclass="b"><span\sclass="septani"><\/span>)
                 <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
                 <strong>(?<nick>[^<]+)<\/strong>
-                (?>\s(?<private>⇨)\s(?><em>)?(?<to>[^:]*)(?><\/em>)?)?
+                (?>\s(?<private>⇨)\s(?><em>)?(?<to>[^:<]*)(?><\/em>)?)?
                 :\s(?<msg>.+?)<\/font>(?><\/span>)?$
                 /sx;
             next
