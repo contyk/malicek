@@ -755,86 +755,93 @@ post '/rooms/:id' => sub {
                 barva => body_parameters->get('color'),
             },
         );
+    } elsif ($action eq 'report') {
+        session('ua')->post(
+            "${alik}/k/" . route_parameters->get('id') . '/neplecha',
+            {
+                vzkaz => body_parameters->get('report'),
+            },
+        );
     } elsif ($action eq 'op') {
         session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            "${alik}/k/" . route_parameters->get('id') . '/spravce',
             {
                 master => body_parameters->get('target'),
-            }
+            },
         );
     } elsif ($action eq 'deop') {
         return session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            "${alik}/k/" . route_parameters->get('id') . '/spravce',
             {
                 demaster => 'ok',
-            }
+            },
         )->code;
     } elsif ($action eq 'lock') {
-        my $lock;
-        if (body_parameters->get('allowed') eq 'none') {
-            $lock = [ 'kluky', 'holky' ];
-        } elsif (body_parameters->get('allowed') eq 'all') {
-            badrequest;
-        } elsif (body_parameters->get('allowed') eq 'boys') {
-            $lock = 'kluky';
-        } elsif (body_parameters->get('allowed') eq 'girls') {
-            $lock = 'holky';
-        } elsif (body_parameters->get('allowed') eq 'friends') {
-            $lock = 'nekamarady';
+        if (body_parameters->get('allowed') eq 'all') {
+            session('ua')->post(
+                "${alik}/k/" . route_parameters->get('id') . '/spravce',
+                {
+                    open => 'on',
+                }
+            );
         } else {
-            badrequest;
+            my $lock;
+            if (body_parameters->get('allowed') eq 'none') {
+                $lock = [ 'kluky', 'holky' ];
+            } elsif (body_parameters->get('allowed') eq 'boys') {
+                $lock = 'kluky';
+            } elsif (body_parameters->get('allowed') eq 'girls') {
+                $lock = 'holky';
+            } elsif (body_parameters->get('allowed') eq 'friends') {
+                $lock = 'nekamarady';
+            } else {
+                badrequest;
+            }
+            session('ua')->post(
+                "${alik}/k/" . route_parameters->get('id') . '/spravce',
+                {
+                    open => 'on',
+                },
+            );
+            session('ua')->post(
+                "${alik}/k/" . route_parameters->get('id') . '/spravce',
+                {
+                    lock => $lock,
+                },
+            );
         }
-        session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
-            {
-                open => 'on',
-            }
-        );
-        session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
-            {
-                lock => $lock,
-            }
-        );
-    } elsif ($action eq 'unlock') {
-        session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
-            {
-                open => 'on',
-            }
-        );
     } elsif ($action eq 'clear') {
         session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            "${alik}/k/" . route_parameters->get('id') . '/spravce',
             {
                 clear => 1,
-            }
+            },
         );
     } elsif ($action eq 'kick') {
         session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            "${alik}/k/" . route_parameters->get('id') . '/spravce',
             {
                 kick => body_parameters->get('target'),
                 doba => body_parameters->get('duration'),
                 duvod => body_parameters->get('reason'),
-            }
+            },
         );
     } elsif ($action eq 'ban') {
         session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            "${alik}/k/" . route_parameters->get('id') . '/spravce',
             {
                 kick => body_parameters->get('target'),
                 doba => body_parameters->get('duration'),
                 duvod => body_parameters->get('reason'),
                 klubkick => 1,
-            }
+            },
         );
     } elsif ($action eq 'destroy') {
         session('ua')->post(
-            "${alik}/k/". route_parameters->get('id') . '/master',
+            "${alik}/k/" . route_parameters->get('id') . '/master',
             {
                 change => 1,
-            }
+            },
         );
         redirect('/rooms/');
     } else {
