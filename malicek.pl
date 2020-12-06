@@ -416,11 +416,11 @@ sub parse_chat {
     if ($+{lock}) {
         if ($+{lock} eq 'lock') {
             $room->allowed('none');
-        } elsif ($+{lock} eq 'lockh.png') {
+        } elsif ($+{lock} eq 'lockh') {
             $room->allowed('boys');
-        } elsif ($+{lock} eq 'lockk.png') {
+        } elsif ($+{lock} eq 'lockk') {
             $room->allowed('girls');
-        } elsif ($+{lock} eq 'locknf.png') {
+        } elsif ($+{lock} eq 'locknf') {
             $room->allowed('friends');
         } else {
             $room->allowed('unknown');
@@ -747,7 +747,6 @@ post '/rooms/:id' => sub {
         );
         redirect('/rooms/');
     } elsif ($action eq 'post') {
-        # Always responds to 302 L: /k/
         session('ua')->post(
             "${alik}/k/" . route_parameters->get('id'),
             {
@@ -756,22 +755,92 @@ post '/rooms/:id' => sub {
                 barva => body_parameters->get('color'),
             },
         );
-        redirect('/rooms/' . route_parameters->get('id'));
-    } elsif ($action eq 'operator') {
-        badrequest;
+    } elsif ($action eq 'op') {
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                master => body_parameters->get('target'),
+            }
+        );
+    } elsif ($action eq 'deop') {
+        return session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                demaster => 'ok',
+            }
+        )->code;
     } elsif ($action eq 'lock') {
-        badrequest;
+        my $lock;
+        if (body_parameters->get('allowed') eq 'none') {
+            $lock = [ 'kluky', 'holky' ];
+        } elsif (body_parameters->get('allowed') eq 'all') {
+            badrequest;
+        } elsif (body_parameters->get('allowed') eq 'boys') {
+            $lock = 'kluky';
+        } elsif (body_parameters->get('allowed') eq 'girls') {
+            $lock = 'holky';
+        } elsif (body_parameters->get('allowed') eq 'friends') {
+            $lock = 'nekamarady';
+        } else {
+            badrequest;
+        }
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                open => 'on',
+            }
+        );
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                lock => $lock,
+            }
+        );
     } elsif ($action eq 'unlock') {
-        badrequest;
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                open => 'on',
+            }
+        );
     } elsif ($action eq 'clear') {
-        badrequest;
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                clear => 1,
+            }
+        );
     } elsif ($action eq 'kick') {
-        badrequest;
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                kick => body_parameters->get('target'),
+                doba => body_parameters->get('duration'),
+                duvod => body_parameters->get('reason'),
+            }
+        );
     } elsif ($action eq 'ban') {
-        badrequest;
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/spravce',
+            {
+                kick => body_parameters->get('target'),
+                doba => body_parameters->get('duration'),
+                duvod => body_parameters->get('reason'),
+                klubkick => 1,
+            }
+        );
+    } elsif ($action eq 'destroy') {
+        session('ua')->post(
+            "${alik}/k/". route_parameters->get('id') . '/master',
+            {
+                change => 1,
+            }
+        );
+        redirect('/rooms/');
     } else {
         badrequest;
     }
+    redirect('/rooms/' . route_parameters->get('id'));
 };
 
 sub game_lednicka {
