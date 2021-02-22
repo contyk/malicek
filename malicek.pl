@@ -97,14 +97,14 @@ my $alik = 'https://www.alik.cz';
     package Malicek::Profile;
     use Mo qw/default xs/;
     extends 'Malicek::User';
-    has 'realname';
-    has 'home';
-    has 'hobbies' => [];
-    has 'rank';
-    has 'registered';
-    has 'seen';
     has 'blocked' => 0;
     has 'gone' => 0;
+    has 'rank';
+    has 'realname';
+    has 'home';
+    has 'registered';
+    has 'seen';
+    has 'hobbies' => [];
     has 'quest';
     has 'likes';
     has 'dislikes';
@@ -118,7 +118,24 @@ my $alik = 'https://www.alik.cz';
     # TODO: Faved games
     sub dump {
         my $self = shift;
-        return {};
+        return {
+            $self->SUPER::dump->%*,
+            blocked => $self->blocked ? \1 : \0,
+            gone => $self->gone ? \1 : \0,
+            rank => $self->rank,
+            realname => $self->realname,
+            home => $self->home,
+            registered => $self->registered,
+            hobbies => $self->hobbies,
+            seen => $self->seen,
+            quest => $self->quest,
+            likes => $self->likes,
+            dislikes => $self->dislikes,
+            pictures => $self->pictures,
+            style => $self->style,
+            counter => $self->counter ? int($self->counter) : undef,
+            visitors => $self->visitrs,
+        };
     }
 }
 
@@ -303,11 +320,11 @@ sub parse_status {
     $_[0] =~ /
         ^Alik\.pocty\(
         "(?<mail>\d+)",\s
-        "(?<people>\d+)!?",\s
+        "[!?]?(?<people>\d*)[!?]?",\s
         "(?<cash>[0-9\s]+)"\);$/sx;
     return {
         mail => int($+{mail}),
-        people => int($+{people}),
+        people => int($+{people} || 0),
         cash => int($+{cash} =~ s/\s//gr),
     };
 }
@@ -645,7 +662,7 @@ post '/login' => sub {
         session cookies => (tmpnam)[1];
         session ua => $ua;
         save_cookies;
-        redirect('/malicek', 200);
+        redirect('/malicek');
     } else {
         unauthenticated;
     }
@@ -656,7 +673,7 @@ get '/logout' => sub {
         "$alik/odhlasit",
     );
     logout;
-    redirect('/malicek', 200);
+    redirect('/malicek');
 };
 
 get '/status' => sub {
@@ -686,7 +703,7 @@ post '/rooms/' => sub {
     );
     if ($r->code == 302) {
         $r->header('Location') =~ /\/k\/(?<id>.+)$/;
-        redirect('/rooms/' . $+{id}, 201);
+        redirect('/rooms/' . $+{id});
     } else {
         status(409);
         return {};
@@ -848,6 +865,56 @@ post '/rooms/:id' => sub {
         badrequest;
     }
     redirect('/rooms/' . route_parameters->get('id'));
+};
+
+get '/users' => sub {
+    redirect('/users/');
+};
+
+get '/users/' => sub {
+    return [];
+};
+
+# name, id, link, age, sex, avatar, admin, online
+#    'realname';
+#    'home';
+#    'hobbies' => [];
+#    'rank';
+#    'registered';
+#    'seen';
+#    'blocked' => 0;
+#    'gone' => 0;
+#    'quest';
+#    'likes';
+#    'dislikes';
+#    'pictures' => [];
+#    'style';
+#    'counter';
+#    'visitors' => [];
+
+get '/users/:id' => sub {
+    my $r = session('ua')->get(
+        "${alik}/u/" . route_parameters->get('id'),
+    );
+    reconcile($r->decoded_content);
+    my $content = $r->decoded_content;
+    if ($content =~ /<h1\sclass="tit">Vizitka\snenalezena<\/h1>/s) {
+        # Never existed or no longer active; could distinguish
+        return 404;
+    }
+    my $profile = Malicek::Profile->new();
+    if ($content =~ /<div\sclass="mimoblok">/s) {
+        # Blocked, some info to parse
+    } else {
+        # Potentially temporary blocked; what does that look like?
+        $profile->name(
+            ($content =~ /<title>(.+)\s–\sVizitka\s–\sAlík.cz<\/title>/sx)[0]
+        );
+        $profile->id(
+            ($content =~ /<div\sstyle="color:\stransparent;[^"]+">(\d+)<\/div>/sx)[0]
+        );
+        return $profile->dump;
+    }
 };
 
 sub game_lednicka {
