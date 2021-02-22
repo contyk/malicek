@@ -8,7 +8,7 @@ start:
 		--rm \
 		--name malicek \
 		--detach \
-		--publish 3000 \
+		--publish 3000:3000 \
 		--volume .:/malicek \
 		malicek
 
