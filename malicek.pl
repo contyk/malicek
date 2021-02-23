@@ -521,12 +521,12 @@ sub parse_chat {
                     type => 'clear',
                     source => $+{nick},
                 ));
-            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem od stolu\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) byla? vyhozena? správcem či moderátorem od stolu\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'kick',
                     target => $+{nick},
                 ));
-            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) předala? správce\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) předala? moderátora\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'oper',
                     source => $+{nick},
