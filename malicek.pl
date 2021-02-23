@@ -526,7 +526,7 @@ sub parse_chat {
                     type => 'kick',
                     target => $+{nick},
                 ));
-            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) předala? moderátora\.$/) {
+            } elsif ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) (?>předal|odebral)a? titul moderátora\.$/) {
                 $msg->event(Malicek::Event->new(
                     type => 'oper',
                     source => $+{nick},
