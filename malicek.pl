@@ -84,7 +84,7 @@ my $alik = 'https://www.alik.cz';
             link => $self->link,
             age => $self->age ? int($self->age) : undef,
             sex => $self->sex,
-            avatar => $self->avatar ? 'https://' . $self->avatar : undef,
+            avatar => $self->avatar,
             admin => $self->admin,
             online => $self->online ? \1 : \0,
             since => $self->since,
@@ -160,7 +160,7 @@ my $alik = 'https://www.alik.cz';
             message => $self->message,
             color => $self->color,
             time => $self->time,
-            avatar => $self->avatar ? 'https://' . $self->avatar : undef,
+            avatar => $self->avatar,
         };
     }
 }
@@ -366,7 +366,7 @@ sub parse_rooms {
         while ($people && $people =~ /
             <a\shref="\/u\/(?<link>[^"]+)"\sclass="sublink
             (?>\sklubovna-(?<sex>kluk|holka))?">
-            (?><img\ssrc="\/\/(?<avatar>[^"]+)">)?<u>
+            (?><img\ssrc="(?<avatar>[^"]+)">)?<u>
             <span(?>\sclass="(?<admin>[^"]+)"\stitle="[^"]+")?>
             (?<name>[^<]+)<\/span><\/u><span\sclass="klubovna-info">
             (?>(?<age>\d+)\slet|dítě|dospěl[ýá])<\/span><\/a>
@@ -384,8 +384,12 @@ sub parse_rooms {
                     $user->sex('girl');
                 }
             }
-            $user->avatar($+{avatar})
-                if defined($+{avatar});
+            if (defined($+{avatar})) {
+                $user->avatar($alik . $+{avatar})
+                    if substr($+{avatar}, 0, 2) eq '/-';
+                $user->avatar('https:' . $+{avatar})
+                    if substr($+{avatar}, 0, 2) eq '//';
+            }
             if (defined($+{admin})) {
                 my $admin = $+{admin};
                 if ($admin eq 'uzivatel-podspravce') {
@@ -481,14 +485,18 @@ sub parse_chat {
     while ($_[0] =~ /
         <p\sclass="(?<type>system|c-1)">
         (?><span\sclass="time">(?<time>\d{1,2}:\d{2}:\d{2})<\/span>)?
-        (?><img\s[^\/]+\/\/(?<avatar>[^"]+)">)?(?<message>.+?)<\/p>
+        (?><img\s[^\/]+(?<avatar>[^"]+)">)?(?<message>.+?)<\/p>
         /sgx) {
         my $msg = Malicek::Message->new;
         $msg->type($+{type} eq 'system' ? 'system' : 'chat');
         $msg->time(length($+{time}) == 8 ? $+{time} : '0' . $+{time})
             if defined($+{time});
-        $msg->avatar($+{avatar})
-            if defined($+{avatar});
+        if (defined($+{avatar})) {
+            $msg->avatar($alik . $+{avatar})
+                if substr($+{avatar}, 0, 2) eq '/-';
+            $msg->avatar('https:' . $+{avatar})
+                if substr($+{avatar}, 0, 2) eq '//';
+        }
         if ($+{type} eq 'system') {
             $msg->message($+{message} =~ s/^\s|<[^>]+>|\s$//sgxr);
             if ($msg->message =~ /^Kamarád(?>ka)? (?<nick>.+) si přisedla? ke stolu\.$/) {
