@@ -6,8 +6,7 @@ An experimental, toy middle layer that serves as an abstraction of
 Alík's features.  Currently limited to chat.
 
 Due to Alík's limitations, this service is inherently unsafe and using a
-public instance is not recommended.  See below for details.  However, a
-public demo instance is available at https://alik.contyk.dev/.
+public instance is not recommended.  See below for details.
 
 ## Architecture
 
@@ -430,9 +429,6 @@ server {
 Petr Šabata <contyk@contyk.dev>, 2019-2023
 
 Code licensed under MIT/X.  See `public/LICENSE.txt` for details.
-
-The repository also includes `public/spinner.gif`, a CC0-licensed
-generated loading animation from [Loading.io](https://loading.io).
 
 Additionally, the `public/favicon.png` image is a glyph from the Noto
 Emoji typeface, distributed under SIL Open Font License by
