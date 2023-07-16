@@ -427,7 +427,7 @@ server {
 
 ## License
 
-Petr Šabata <contyk@contyk.dev>, 2019-2020
+Petr Šabata <contyk@contyk.dev>, 2019-2023
 
 Code licensed under MIT/X.  See `public/LICENSE.txt` for details.
 
