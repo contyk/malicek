@@ -321,7 +321,7 @@ sub parse_status {
         ^Alik\.pocty\(
         "(?<mail>\d+)",\s
         "[!?]?(?<people>\d*)[!?]?",\s
-        "(?<cash>[0-9\s]+)"\);$/sx;
+        "(?<cash>[0-9\s]+)".*?\);$/sx;
     return {
         mail => int($+{mail}),
         people => int($+{people} || 0),
