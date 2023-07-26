@@ -563,6 +563,7 @@ sub parse_chat {
             $raw =~ s/<img\sclass="smiley"\ssrc="[^"]+"\salt="([^"]+)">?/[$1]/sgx;
             # Workaround for broken highlights in links
             $raw =~ s/<\/?em>//sgx;
+            $raw =~ s/<a\s+href="([^"]+)"[^>]*>[^<]+<\/a>/$1/sgx;
             $raw =~ s/<[^>]*>//sgx;
             $msg->message(decode_entities($raw));
         }
