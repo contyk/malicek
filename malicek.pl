@@ -547,7 +547,7 @@ sub parse_chat {
         } else {
             $+{message} =~ /
                 ^(?>\s|<span\sclass="b"><span\sclass="septani"><\/span>)
-                <font\scolor="(?>(?<color>\#[a-fA-F0-9]{6})|[^"]+)">
+                <font\scolor="(?<color>[^"]+)">
                 <strong>(?<nick>[^<]+)<\/strong>
                 (?>\s(?<private>⇨)\s(?><em>)?(?<to>[^:<]*)(?><\/em>)?)?
                 :\s(?<msg>.+?)<\/font>(?><\/span>)?$
