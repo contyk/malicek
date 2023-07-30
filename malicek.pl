@@ -451,7 +451,7 @@ sub parse_chat {
         <li>(?><span\sclass="(?<admin>guru|master|super[nkr]{1,3}|chef)">
         <\/span>)?<h4\sclass="(?<sex>boy|girl|unisex)">(?<nick>[^<]+)<\/h4>
         <div\sclass="user-status">(?><p>Je\smi:\s<b>(?<age>\d+)\s[^<]+<\/b>
-        <\/p>)?<ul><li><a\shref="\/u\/(?<link>[^"]+)"\sclass="vizitka">Vizitka
+        <\/p>)?<ul><li><a\shref="\/u\/(?<link>[^"]+)"\sclass="vizitka"[^>]*>Vizitka
         <\/a><\/li>(?><li><a\s[^.]+\.value\s=\s'(?<id>\d+)'[^>]+>[^<]+<\/a>
         <\/li>)?<\/ul><p>\sU\sstolu\sjsem:\s<b\s[^>]+>od\s(?<since>[^<]+)
         <\/b><br>\sPoslední\szpráva:\s<b>(?<last>[^<]+)<\/b><\/p><\/div><\/li>
