@@ -336,10 +336,11 @@ sub parse_rooms {
         (?<lock>cerveny|zeleny|modry|zluty))?">\s
         (?><a\shref="\/k\/(?<id>[^"]+)"\sclass="sublink\sstul-nazev"[^>]*>
         |<i\sclass="stul-nazev">)<u>(?<name>[^<]+)<\/u>
-        (?>\s<small>(?>–\s(?<topic>[^<]+)|[^<]*)<\/small>)?<\/[ai]>
-        (?><small\sclass=fr>\(založila?\s<a\shref="\/u\/[^"]+">
-        <span[^>]*>(?<creator>[^<]+)<\/span><\/a>\)<\/small>)?\s<\/div>\s
-        (?><div\sclass="klubovna-lidi(?>\s[^"]+)?"\sdata-pocet="\d+">
+        (?>\s<small>(?>–\s(?<topic>[^<]+)|\(ticho[^)]*\))<\/small>)?<\/[ai]>
+        (?><small\sclass=fr>(?>\(založila?\s<a\shref="\/u\/[^"]+"><span[^>]*>
+        (?<creator>[^<]+)<\/span><\/a>\)|<a\shref="\/u\/[^"]+">
+        <span\s[^>]+>[^<]+<\/span><samp\s[^>]+><\/samp><\/a>)<\/small>)?
+        \s<\/div>\s(?><div\sclass="klubovna-lidi(?>\s[^"]+)?"\sdata-pocet="\d+">
         (?<people>.+?)<\/div>)?
         /sgx) {
         my $room = Malicek::Room->new(
