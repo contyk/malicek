@@ -339,7 +339,8 @@ sub parse_rooms {
         (?>\s<small>(?>–\s(?<topic>[^<]+)|\(ticho[^)]*\))<\/small>)?<\/[ai]>
         (?><small\sclass=fr>(?>\(založila?\s<a\shref="\/u\/[^"]+"><span[^>]*>
         (?<creator>[^<]+)<\/span><\/a>\)|<a\shref="\/u\/[^"]+">
-        <span\s[^>]+>[^<]+<\/span><samp\s[^>]+><\/samp><\/a>)<\/small>)?
+        <span\s[^>]+>[^<]+<\/span><samp\s[^>]+><\/samp><\/a>|
+        <i\s[^>]+>\(nikdo\)<\/i>)<\/small>)?
         \s<\/div>\s(?><div\sclass="klubovna-lidi(?>\s[^"]+)?"\sdata-pocet="\d+">
         (?<people>.+?)<\/div>)?
         /sgx) {
